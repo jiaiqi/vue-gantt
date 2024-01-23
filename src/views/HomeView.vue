@@ -101,7 +101,7 @@ const initGanttData = (data = [], config = {}) => {
 const initColumns = (config = {}) => {
   const columns = [
     {
-      name: "text", label: "标题", tree: true, width: '*', template: function (obj) {
+      name: "text", label: "标题", tree: true, width: '200', template: function (obj) {
         return `<span style="cursor:pointer" title="${obj.text}">${obj.text}</span>`
       }
     },
