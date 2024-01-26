@@ -1,13 +1,18 @@
 import { createRouter, createWebHistory,createWebHashHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
+import GanttMain from '../views/gantt.vue'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView
+      name: 'GanttMain',
+      component: GanttMain
+    },
+    {
+      path: '/main/:cfgNo',
+      name: 'GanttMainTwo',
+      component: GanttMain
     },
     // {
     //   path: '/about',

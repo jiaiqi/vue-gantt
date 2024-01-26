@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, defineEmits,nextTick } from "vue";
+import { ref, onMounted, watch, defineEmits, nextTick } from "vue";
 import dayjs from 'dayjs'
 import { gantt as dhtmlxgantt } from "dhtmlx-gantt";
 import 'dhtmlx-gantt/codebase/skins/dhtmlxgantt_material.css'
@@ -59,6 +59,7 @@ const initGantt = () => {
 
   //时间轴图表中，如果不设置，只有行边框，区分上下的任务，设置之后带有列的边框，整个时间轴变成格子状。
   dhtmlxgantt.config.autofit = false
+  dhtmlxgantt.config.autoscroll = false
   dhtmlxgantt.config.row_height = 60
   dhtmlxgantt.config.bar_height = 34
   // dhtmlxgantt.config.fit_tasks = true //自动延长时间刻度，以适应所有显示的任务
@@ -72,7 +73,51 @@ const initGantt = () => {
   }
   dhtmlxgantt.config.grid_resize = true;
   dhtmlxgantt.config.drag_move = false;
+  dhtmlxgantt.config.resize_rows = true;
 
+  dhtmlxgantt.config.layout = {
+    css: "gantt_container",
+    rows: [
+      {
+        cols: [
+          {
+            width: 450,
+            rows: [
+              {
+                // the default grid view  
+                view: "grid",
+                scrollX: "scrollHor2",
+                scrollY: "scrollVer",
+              },
+              {
+                view: "scrollbar",
+                id: "scrollHor2"
+              }
+            ]
+          },
+          // { resizer: true, width: 1 },
+          {
+
+            rows: [
+              {
+                view: "timeline",
+                scrollX: "scrollHor",
+                scrollY: "scrollVer"
+              },
+              {
+                view: "scrollbar",
+                id: "scrollHor"
+              }
+            ]
+          },
+          {
+            view: "scrollbar",
+            id: "scrollVer"
+          },
+        ],
+      },
+    ]
+  }
   dhtmlxgantt.init(ganttRef.value)
   dhtmlxgantt.attachEvent("onAfterLinkAdd", function (id, item) {
     //any custom logic here
@@ -103,24 +148,27 @@ const initGantt = () => {
 
   //   }
   // })
-  // dhtmlxgantt.parse({
-  //   data: props.data,
-  //   links: props.links,
-  // })
+
+  dhtmlxgantt.attachEvent("onAfterTaskUpdate", (id, item) => {
+    console.log('onAfterTaskUpdate', id, { ...item });
+  })
+  dhtmlxgantt.attachEvent("onLinkDblClick", function (id, e) {
+    return false; //阻止默认双击事件
+  });
+  dhtmlxgantt.attachEvent("onTaskDblClick", function (id, e) {
+    emit('onTaskDblClick', id)
+    return false;
+  });
 }
-dhtmlxgantt.attachEvent("onAfterTaskUpdate", (id, item) => {
-  console.log('onAfterTaskUpdate', id, { ...item });
-})
-dhtmlxgantt.attachEvent("onLinkDblClick", function (id, e) {
-  //any custom logic here
-  return false; //阻止默认双击事件
-});
-dhtmlxgantt.attachEvent("onTaskDblClick", function (id, e) {
-  //any custom logic here
-  // console.log("onTaskDblClick", id, e);
-  emit('onTaskDblClick', id)
-  return false;
-});
+const reload = () => {
+  dhtmlxgantt.clearAll();// 从甘特图中删除所有任务和其他元素（包括标记）
+  dhtmlxgantt.parse({
+    data: ganttData.value,
+    links: props.links,
+  }); // 数据解析
+  dhtmlxgantt.render(); // 呈现整个甘特图
+}
+
 const ganttData = ref([])
 watch(() => props.columns, (newVal) => {
   if (newVal?.length) {
@@ -136,10 +184,7 @@ watch(() => props.data, (newVal, oldVal) => {
   } else {
     ganttData.value = []
   }
-  dhtmlxgantt.parse({
-    data: ganttData.value,
-    links: props.links,
-  })
+  reload()
 }, {
   deep: true,
   immediate: true
