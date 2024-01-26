@@ -5,13 +5,18 @@ const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/',
+      path: '/:cfgNo',
       name: 'GanttMain',
       component: GanttMain
     },
     {
+      path: '/:cfgNo/:pIds',
+      name: 'GanttMain2',
+      component: GanttMain
+    },
+    {
       path: '/main/:cfgNo',
-      name: 'GanttMainTwo',
+      name: 'GanttMain3',
       component: GanttMain
     },
     // {

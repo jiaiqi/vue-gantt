@@ -32,7 +32,7 @@ const route = useRoute();
 const loading = ref(false);
 const parentNos =
   route.query?.pIds ||
-  route.query?.pids ||
+  route.query?.pids ||route.params.pIds||
   "WBS2312250001,WBS2310140007,WBS2310140001,WBS2310300034";
 const fetchData = async () => {
   const url = `/${config.srv_mapp}/select/${config.srv_select}`;
