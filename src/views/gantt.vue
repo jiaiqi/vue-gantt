@@ -29,10 +29,11 @@ const config = reactive({
   // col_foldl:'open'
 });
 const route = useRoute();
+const ganttVue = ref(null);
 const loading = ref(false);
 const parentNos =
   route.query?.pIds ||
-  route.query?.pids ||route.params.pIds||
+  route.query?.pids || route.params.pIds ||
   "WBS2312250001,WBS2310140007,WBS2310140001,WBS2310300034";
 const fetchData = async () => {
   const url = `/${config.srv_mapp}/select/${config.srv_select}`;
@@ -197,6 +198,27 @@ const onTaskDblClick = (id) => {
     addTabByUrl(url, data.text);
   }
 };
+const curDateType = ref('month');
+const dateOptions = [{
+  label: '年',
+  value: 'year'
+},
+{
+  label: '月',
+  value: 'month'
+}, {
+  label: '周',
+  value: 'week'
+}, {
+  label: '日',
+  value: 'day'
+}]
+
+// 切换 年  月 周 日视图 
+const ganttChangeDateView = (type) => {
+  ganttVue.value?.ganttChangeDateView(type)
+}
+
 onMounted(async () => {
   loading.value = true;
   await getGanttCfg()
@@ -210,7 +232,15 @@ onUnmounted(() => {
 
 <template>
   <div class="page-wrap">
-    <GanttVue :data="ganttData" :columns="ganttColumns" v-loading="loading" @onTaskDblClick="onTaskDblClick" />
+    <div class="gantt-header">
+      <div></div>
+      <div>
+        <el-select v-model="curDateType" class="m-2" placeholder="Select" size="sm" style="width:80px" @change="ganttChangeDateView">
+          <el-option v-for="item in dateOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+    </div>
+    <GanttVue :data="ganttData" :columns="ganttColumns" v-loading="loading" @onTaskDblClick="onTaskDblClick" ref="ganttVue"/>
   </div>
 </template>
 
@@ -218,6 +248,14 @@ onUnmounted(() => {
 .page-wrap {
   width: 100vw;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  .gantt-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+  }
 
   .gantt_tree_content {
     overflow: hidden;

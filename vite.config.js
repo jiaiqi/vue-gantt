@@ -6,6 +6,7 @@ import AutoImport from "unplugin-auto-import/vite";
 import Components from "unplugin-vue-components/vite";
 import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
 import vitePluginRequire from "vite-plugin-require";
+import VueDevTools from 'vite-plugin-vue-devtools'
 // https://vitejs.dev/config/
 /** @type {import('vite').UserConfig} */
 export default defineConfig({
@@ -22,6 +23,7 @@ export default defineConfig({
       // 打包完成后自动打开浏览器，显示产物体积报告
       // open: true,
     }),
+    // VueDevTools(),
   ],
   resolve: {
     alias: {
