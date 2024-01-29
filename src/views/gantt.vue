@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ElMessageBox, ElMessage } from "element-plus";
 import { useRoute } from "vue-router";
 import { $http } from "../common/http";
 import { addTabByUrl } from "../common/utils/index";
@@ -33,7 +34,8 @@ const ganttVue = ref(null);
 const loading = ref(false);
 const parentNos =
   route.query?.pIds ||
-  route.query?.pids || route.params.pIds ||
+  route.query?.pids ||
+  route.params.pIds ||
   "WBS2312250001,WBS2310140007,WBS2310140001,WBS2310300034";
 const fetchData = async () => {
   const url = `/${config.srv_mapp}/select/${config.srv_select}`;
@@ -64,49 +66,61 @@ const fetchData = async () => {
   ganttData.value = initGanttData(res.data.data, config);
   ganttColumns.value = initColumns(config);
 };
+/**
+ * 查找甘特图字段映射及增删改查接口配置
+ */
 const getGanttCfg = async () => {
   const cfgNo = route.query.cfgNo || route.params.cfgNo;
   const url = `/config/select/srvpage_cfg_com_gantt_cfg_select`;
   const req = {
     serviceName: "srvpage_cfg_com_gantt_cfg_select",
     colNames: ["*"],
-    condition: [{
-      colName: 'gantt_cfg_no',
-      ruleType: 'eq',
-      value: cfgNo
-    }],
+    condition: [
+      {
+        colName: "gantt_cfg_no",
+        ruleType: "eq",
+        value: cfgNo,
+      },
+    ],
   };
   if (cfgNo) {
     const res = await $http.post(url, req);
     if (res.data.state === "SUCCESS" && res.data.data.length > 0) {
-      const keys = ['srv_mapp',
-        'srv_select',
-        'srv_add',
-        'srv_update',
-        'srv_delete',
-        'col_title',
-        'col_start_t',
-        'col_end_time',
-        'col_duration', //预估时间
-        'col_duration_unit', //默认为天
-        'col_progress',
-        'col_status',
-        'col_no',
-        'col_parent_no',
-        'col_fold']
-      keys.forEach(key => {
+      const keys = [
+        "srv_mapp",
+        "srv_select",
+        "srv_add",
+        "srv_update",
+        "srv_delete",
+        "col_title",
+        "col_start_time",
+        "col_end_time",
+        "col_duration", //预估时间
+        "col_duration_unit", //默认为天
+        "col_progress",
+        "col_status",
+        "col_no",
+        "col_parent_no",
+        "col_fold",
+      ];
+      keys.forEach((key) => {
         if (res.data.data[0][key]) {
-          config[key] = res.data.data[0][key]
+          config[key] = res.data.data[0][key];
         }
-      })
+      });
       // config = reactive({
       //   ...res.data.data[0],
       //   ...config,
       // });
     }
   }
-  return config
+  return config;
 };
+/**
+ * 初始化图表数据
+ * @param {*} data 请求回来的数据
+ * @param {*} config 甘特图字段映射配置
+ */
 const initGanttData = (data = [], config = {}) => {
   return data.map((item) => {
     const obj = {
@@ -116,7 +130,7 @@ const initGanttData = (data = [], config = {}) => {
     };
     obj.id = item[config.col_no];
     obj.text = item[config.col_title];
-    obj.open = item[config.col_fold] === '否' || false;
+    obj.open = item[config.col_fold] === "否" || true;
     obj.parent = item[config.col_parent_no];
     obj.progress = item[config.col_progress] / 100;
     obj.end_date = item[config.col_end_time];
@@ -183,10 +197,20 @@ const initColumns = (config = {}) => {
     // { name: "add", label: "" }
   ];
   if (config.col_start_time) {
-    columns.push({ name: "start_date", label: "开始时间点", align: "center", width: 200 })
+    columns.push({
+      name: "start_date",
+      label: "开始时间点",
+      align: "center",
+      width: 200,
+    });
   }
   if (config.col_end_time) {
-    columns.push({ name: "end_date", label: "完成时间点", align: "center", width: 200 })
+    columns.push({
+      name: "end_date",
+      label: "完成时间点",
+      align: "center",
+      width: 200,
+    });
   }
   return columns;
 };
@@ -198,30 +222,122 @@ const onTaskDblClick = (id) => {
     addTabByUrl(url, data.text);
   }
 };
-const curDateType = ref('month');
-const dateOptions = [{
-  label: '年',
-  value: 'year'
-},
-{
-  label: '月',
-  value: 'month'
-}, {
-  label: '周',
-  value: 'week'
-}, {
-  label: '日',
-  value: 'day'
-}]
+const dateChange = (newVal) => {
+  console.log("datechange", newVal);
+  const start = dayjs(newVal.start_date).format("YYYY-MM-DD")
+  const end = dayjs(newVal.end_date).format("YYYY-MM-DD")
+  ElMessageBox.confirm(
+    `确定将起止日期修改为${start}至${end}?`,
+    "Warning",
+    {
+      confirmButtonText: "确认",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  )
+    .then(() => {
+      updateData('date',newVal).then(res => {
+        if (res) {
+          ElMessage({
+            type: "success",
+            message: "修改成功",
+          });
+        } else {
+          ElMessage({
+            type: "error",
+            message: "修改失败",
+          });
+        }
+        fetchData()
+      })
+    })
+    .catch(() => {
+      ElMessage({
+        type: "info",
+        message: "取消修改",
+      });
+      ganttVue.value?.reload();
+    });
+};
+const progressChange = (newVal) => {
+  console.log("progressChange", newVal);
+  ElMessageBox.confirm(`确定将进度修改为${newVal?.progress}%?`, "Warning", {
+    confirmButtonText: "确认",
+    cancelButtonText: "取消",
+    type: "warning",
+  })
+    .then(() => {
+      updateData('progress',newVal).then(res => {
+        if (res) {
+          ElMessage({
+            type: "success",
+            message: "修改成功",
+          });
+        } else {
+          ElMessage({
+            type: "error",
+            message: "修改失败",
+          });
+        }
+        fetchData()
+      })
+    })
+    .catch(() => {
+      ElMessage({
+        type: "info",
+        message: "取消修改",
+      });
+      ganttVue.value?.reload();
+    });
+};
+const onTaskUpdate = (id, mode, newVal) => {
+  console.log("onTaskUpdate", id, mode, newVal);
+};
 
-// 切换 年  月 周 日视图 
-const ganttChangeDateView = (type) => {
-  ganttVue.value?.ganttChangeDateView(type)
-}
+const updateData = async (mode, data) => {
+  if (!config.srv_update) {
+    ElMessage.error('未配置编辑服务')
+    return
+  }
+  const url = `/${config.srv_mapp}/update/${config.srv_update}`;
+  const reqData = {}
+  if (mode === 'progress') {
+    reqData[config.col_progress] = data.progress
+  } else if (mode === 'date') {
+    if (config.col_start_time) {
+      reqData[config.col_start_time] = dayjs(data.start_date).format("YYYY-MM-DD HH:mm:ss")
+    }
+    if (config.col_end_time) {
+      reqData[config.col_end_time] = dayjs(data.end_date).format("YYYY-MM-DD HH:mm:ss")
+    }
+    if (config.col_duration && config.col_duration_unit && data.duration) {
+      switch (config.col_duration_unit) {
+        case '日':
+          reqData[config.col_duration] = data.duration
+          break;
+        case '小时':
+          reqData[config.col_duration] = data.duration * 8
+          break;
+      }
+    }
+  }
+  const req = [
+    {
+      serviceName: config.srv_update,
+      condition: [{ colName: config.col_no, ruleType: "eq", value: data.id }],
+      data: [reqData],
+    },
+  ];
+  const res = await $http.post(url, req);
+  if (res.data.state === "SUCCESS") {
+    return true
+  }
+  return false
+};
 
 onMounted(async () => {
   loading.value = true;
-  await getGanttCfg()
+  await getGanttCfg();
   await fetchData();
   loading.value = false;
 });
@@ -231,16 +347,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="page-wrap">
-    <div class="gantt-header">
-      <div></div>
-      <div>
-        <el-select v-model="curDateType" class="m-2" placeholder="Select" size="sm" style="width:80px" @change="ganttChangeDateView">
-          <el-option v-for="item in dateOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </div>
-    </div>
-    <GanttVue :data="ganttData" :columns="ganttColumns" v-loading="loading" @onTaskDblClick="onTaskDblClick" ref="ganttVue"/>
+  <div class="page-wrap" v-loading="loading">
+    <gantt-vue :data="ganttData" :columns="ganttColumns" @onTaskUpdate="onTaskUpdate" @onTaskDblClick="onTaskDblClick"
+      @date-change="dateChange" @progress-change="progressChange" ref="ganttVue">
+      <!-- <template #headerRight>
+        <el-button size="" type="primary">保存</el-button>
+      </template> -->
+    </gantt-vue>
   </div>
 </template>
 
@@ -250,12 +363,6 @@ onUnmounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-
-  .gantt-header {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px;
-  }
 
   .gantt_tree_content {
     overflow: hidden;
