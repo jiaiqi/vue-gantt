@@ -24,6 +24,9 @@ const emit = defineEmits([
   "date-change",
   "progress-change",
   "onLinkChange",
+  'onLinkAdd',
+  'onLinkDelete',
+  'onTaskAdd'
 ]);
 const ganttRef = ref(null);
 const dateType = ref("week");
@@ -98,6 +101,10 @@ const props = defineProps({
       // }
     ],
   },
+  durationUnit: {
+    type: String,
+    default: 'day'
+  }
 });
 
 const zoomConfig = {
@@ -210,6 +217,7 @@ const zoomConfig = {
 
 //初始化甘特图
 const initGantt = () => {
+  dhtmlxgantt.config.duration_unit = props.durationUnit;
   dhtmlxgantt.config.grid_width = 350;
   dhtmlxgantt.config.add_column = false; //添加符号
 
@@ -219,7 +227,7 @@ const initGantt = () => {
   dhtmlxgantt.config.row_height = 60;
   dhtmlxgantt.config.bar_height = 34;
   // dhtmlxgantt.config.autosize = 'y'
-  // dhtmlxgantt.config.fit_tasks = true //自动延长时间刻度，以适应所有显示的任务
+  dhtmlxgantt.config.fit_tasks = true //自动延长时间刻度，以适应所有显示的任务
   dhtmlxgantt.config.auto_types = true; //将包含子任务的任务转换为项目，将没有子任务的项目转换回任务
   dhtmlxgantt.config.date_format = "%Y-%m-%d %H:%i"; //甘特图时间格式
   dhtmlxgantt.config.readonly = false; //是否只读
@@ -313,9 +321,20 @@ const initGantt = () => {
   // dhtmlxgantt.config.redo = true;
   // dhtmlxgantt.config.undo = true;
   dhtmlxgantt.init(ganttRef.value);
+  dhtmlxgantt.attachEvent("onAfterLinkDelete", function (id, item) {
+    // 删除节点之间的连接关系
+    emit('onLinkDelete',item)
+
+  });
+  dhtmlxgantt.attachEvent("onAfterLinkUpdate", function (id, item) {
+    // 更新节点之间的连接关系
+    console.log("onAfterLinkUpdate", id, item);
+  });
   dhtmlxgantt.attachEvent("onAfterLinkAdd", function (id, item) {
-    //any custom logic here
-    console.log("onAfterLinkAdd", id, item);
+    // 新增节点之间的连接关系
+    const sourceItem = dhtmlxgantt?.getTask(item.source)
+    const targetItem = dhtmlxgantt?.getTask(item.target)
+    emit('onLinkAdd', item, { id: sourceItem.id, text: sourceItem.text, type: 'source' }, { id: targetItem.id, text: targetItem.text, type: 'target' })
     //     item:{
     //     "source": "WBS2401040073",
     //     "target": "WBS2401040076",
@@ -339,7 +358,7 @@ const initGantt = () => {
     } else if (mode === "resize") {
       //拖动起止时间
       emit("date-change", data);
-    }else if(mode==='move'){
+    } else if (mode === 'move') {
       emit("move-change", data);
     }
     // emit('onTaskUpdate', id, mode, task)
@@ -348,8 +367,21 @@ const initGantt = () => {
   dhtmlxgantt.attachEvent("onAfterTaskUpdate", (id, item) => {
     // console.log('onAfterTaskUpdate', id, { ...item });
   });
-  dhtmlxgantt.attachEvent("onLinkDblClick", function (id, e) {
-    return false; //阻止默认双击事件
+  // dhtmlxgantt.attachEvent("onLinkDblClick", function (id, e) {
+  //   return false; //阻止默认双击事件
+  // });
+  dhtmlxgantt.attachEvent("onAfterTaskAdd", function (id, item) {
+    console.log('onAfterTaskAdd', id, item);
+    const { duration, end_date, parent, progress, start_date, text } = item;
+    emit('onTaskAdd', {
+      duration,
+      end_date,
+      parent,
+      progress,
+      start_date,
+      text,
+    });
+    //any custom logic here
   });
   dhtmlxgantt.attachEvent("onTaskDblClick", function (id, e) {
     emit("onTaskDblClick", id);
@@ -372,12 +404,13 @@ const reload = () => {
   dhtmlxgantt.clearAll(); // 从甘特图中删除所有任务和其他元素（包括标记）
   dhtmlxgantt.parse({
     data: ganttData.value,
-    links: props.links,
+    links: links.value,
   }); // 数据解析
   dhtmlxgantt.render(); // 呈现整个甘特图
 };
 
 const ganttData = ref([]);
+const links = ref([]);
 watch(
   () => props.columns,
   (newVal) => {
@@ -390,6 +423,10 @@ watch(
     immediate: true,
   }
 );
+watch(() => props.links, (newVal) => {
+  links.value = newVal;
+  reload();
+})
 watch(
   () => props.data,
   (newVal, oldVal) => {
@@ -413,7 +450,7 @@ defineExpose({
 })
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .gantt-main {
   width: 100%;
   height: 100%;
@@ -421,6 +458,26 @@ defineExpose({
 
   :deep(.gantt_scale_cell.weekend) {
     color: #d43900;
+  }
+}
+
+body .gantt_cal_larea {
+  .gantt_time_selects {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 5px;
+  }
+
+  .gantt_duration {
+
+    .gantt_duration_inc,
+    .gantt_duration_dec {
+      cursor: pointer;
+    }
+
+    span {
+      display: none;
+    }
   }
 }
 

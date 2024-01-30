@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, onUnmounted } from "vue";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useRoute } from "vue-router";
+import { uniqBy, uniqueId } from 'lodash-es'
 import { $http } from "../common/http";
 import { addTabByUrl } from "../common/utils/index";
 import dayjs from "dayjs";
@@ -28,15 +29,18 @@ const config = reactive({
   // col_no: "wbs_no",
   // col_parent_no: "parent_no",
   // col_foldl:'open'
+  col_pre_no: 'wbs_no_pre',
+  col_next_no: 'wbs_no_next',
 });
 const route = useRoute();
 const ganttVue = ref(null);
+const links = ref([]);
 const loading = ref(false);
 const parentNos =
   route.query?.pIds ||
   route.query?.pids ||
   route.params.pIds ||
-  "WBS2312250001,WBS2310140007,WBS2310140001,WBS2310300034";
+  "WBS2401300002,WBS2312250001,WBS2310140007,WBS2310140001,WBS2310300034";
 const fetchData = async () => {
   const url = `/${config.srv_mapp}/select/${config.srv_select}`;
   const paths = parentNos.split(",").map((item) => {
@@ -64,8 +68,57 @@ const fetchData = async () => {
   }
   originData.value = res.data.data;
   ganttData.value = initGanttData(res.data.data, config);
+  links.value = buildLinks(res.data.data)
   ganttColumns.value = initColumns(config);
 };
+const buildLinks = (datas) => {
+  const links = [];
+  if (Array.isArray(datas) && datas.length) {
+    datas.forEach(item => {
+      if (item[config.col_pre_no]) {
+        // 当前节点的前置节点
+        if (typeof item[config.col_pre_no] === 'string') {
+          try {
+            const arr = JSON.parse(item[config.col_pre_no])
+            if (Array.isArray(arr) && arr.length) {
+              arr.forEach(data => {
+                links.push({
+                  id: uniqueId('link_'),
+                  source: data[config.col_no],
+                  target: item[config.col_no],
+                  type: '0' // 0：结束-开始；1：开始-开始；2：结束-结束；3：开始-结束；
+                })
+              })
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      }
+      if (item[config.col_next_no]) {
+        // 当前节点的后置节点
+        if (typeof item[config.col_next_no] === 'string') {
+          try {
+            const arr = JSON.parse(item[config.col_next_no])
+            if (Array.isArray(arr) && arr.length) {
+              arr.forEach(data => {
+                links.push({
+                  id: uniqueId('link_'),
+                  source: item[config.col_no],
+                  target: data[config.col_no],
+                  type: '0' // 0：结束-开始；1：开始-开始；2：结束-结束；3：开始-结束；
+                })
+              })
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      }
+    })
+  }
+  return links
+}
 /**
  * 查找甘特图字段映射及增删改查接口配置
  */
@@ -101,7 +154,9 @@ const getGanttCfg = async () => {
         "col_status",
         "col_no",
         "col_parent_no",
-        "col_fold",
+        "col_fold",//是否折叠
+        "col_pre_no",//来源编号字段 值可以为数组
+        "col_next_no",//目标编号字段 值可以为数组
       ];
       keys.forEach((key) => {
         if (res.data.data[0][key]) {
@@ -124,30 +179,34 @@ const getGanttCfg = async () => {
 const initGanttData = (data = [], config = {}) => {
   return data.map((item) => {
     const obj = {
-      _data: {
-        ...item,
-      },
+
     };
     obj.id = item[config.col_no];
     obj.text = item[config.col_title];
     obj.open = item[config.col_fold] === "否" || true;
     obj.parent = item[config.col_parent_no];
     obj.progress = item[config.col_progress] / 100;
+    obj.start_date = item[config.col_start_time];
     obj.end_date = item[config.col_end_time];
-    if (config.col_duration_unit === "hour") {
+    // 默认单位为天
+    if (['时', '小时'].includes(config.col_duration_unit)) {
       obj.duration = item[config.col_progress] / 8;
     } else {
       obj.duration = item[config.col_progress];
     }
-    if (!config?.col_start_time && config.col_end_time && config.col_progress) {
-      obj.start_date = dayjs(obj.end_date)
-        .subtract(obj.duration, "day")
-        .format("YYYY-MM-DD");
-    } else {
-      obj.start_date = item[config.col_start_time];
+    if (!obj.start_date && obj.duration && obj.end_date) {
+      obj.start_date = dayjs(obj.end_date).subtract(obj.duration, "day").format("YYYY-MM-DD");
+    } else if (obj.duration && obj.start_date && !obj.end_date) {
+      obj.end_date = dayjs(obj.end_date).add(obj.duration, "day").format("YYYY-MM-DD");
+    } else if (!obj.duration && obj.start_date && obj.end_date) {
+      obj.duration = dayjs(obj.end_date).diff(obj.start_date, "day");
     }
     obj.status = item[config.statusCol];
-    return obj;
+    return {
+      ...obj,
+      _init_data: { ...obj },
+      _origin_data: { ...item },
+    };
   });
 };
 const initColumns = (config = {}) => {
@@ -156,10 +215,10 @@ const initColumns = (config = {}) => {
       name: "text",
       label: "标题",
       tree: true,
-      width: 200,
-      template: function (obj) {
-        return `<span style="cursor:pointer" title="${obj.text}">${obj.text}</span>`;
-      },
+      // width: 200,
+      // template: function (obj) {
+      //   return `<span style="cursor:pointer" title="${obj.text}">${obj.text}</span>`;
+      // },
     },
     // {
     //   name: "status",
@@ -184,7 +243,7 @@ const initColumns = (config = {}) => {
     {
       name: "progress",
       label: "进度",
-      width: 200,
+      width: 80,
       align: "center",
       template: function (obj) {
         if (obj.progress) {
@@ -194,31 +253,32 @@ const initColumns = (config = {}) => {
         }
       },
     },
-    // { name: "add", label: "" }
   ];
   if (config.col_start_time) {
     columns.push({
       name: "start_date",
-      label: "开始时间点",
+      label: "开始时间",
       align: "center",
-      width: 200,
+      width: 100,
     });
-  }
-  if (config.col_end_time) {
+  } else if (config.col_end_time) {
     columns.push({
       name: "end_date",
-      label: "完成时间点",
+      label: "完成时间",
       align: "center",
-      width: 200,
+      width: 100,
     });
   }
+  columns.push(
+    { name: "add", label: "-" }
+  )
   return columns;
 };
 const onTaskDblClick = (id) => {
   console.log("onTaskDblClick", id);
-  const data = ganttData.value.find((item) => item._data[config.idCol] === id);
-  if (data?._data?.id) {
-    const url = `/vpages/#/detail/${config.service}/${data._data.id}`;
+  const data = ganttData.value.find((item) => item._origin_data[config.idCol] === id);
+  if (data?._origin_data?.id) {
+    const url = `/vpages/#/detail/${config.service}/${data._origin_data.id}`;
     addTabByUrl(url, data.text);
   }
 };
@@ -228,7 +288,7 @@ const dateChange = (newVal) => {
   const end = dayjs(newVal.end_date).format("YYYY-MM-DD")
   ElMessageBox.confirm(
     `确定将起止日期修改为${start}至${end}?`,
-    "Warning",
+    "提示",
     {
       confirmButtonText: "确认",
       cancelButtonText: "取消",
@@ -236,7 +296,7 @@ const dateChange = (newVal) => {
     }
   )
     .then(() => {
-      updateData('date',newVal).then(res => {
+      operateData(newVal).then(res => {
         if (res) {
           ElMessage({
             type: "success",
@@ -261,13 +321,13 @@ const dateChange = (newVal) => {
 };
 const progressChange = (newVal) => {
   console.log("progressChange", newVal);
-  ElMessageBox.confirm(`确定将进度修改为${newVal?.progress}%?`, "Warning", {
+  ElMessageBox.confirm(`确定将进度修改为${newVal?.progress}%?`, "提示", {
     confirmButtonText: "确认",
     cancelButtonText: "取消",
     type: "warning",
   })
     .then(() => {
-      updateData('progress',newVal).then(res => {
+      operateData(newVal).then(res => {
         if (res) {
           ElMessage({
             type: "success",
@@ -293,41 +353,197 @@ const progressChange = (newVal) => {
 const onTaskUpdate = (id, mode, newVal) => {
   console.log("onTaskUpdate", id, mode, newVal);
 };
+const onTaskAdd = (data) => {
+  console.log("onTaskAdd", data);
+  ElMessageBox.confirm(`确定添加任务${data.text}?`, "提示", {
+    confirmButtonText: "确认",
+    cancelButtonText: "取消",
+    type: "warning",
+  }).then(() => {
+    operateData(data, 'add').then(res => {
+      if (res) {
+        ElMessage({
+          type: "success",
+          message: "添加成功",
+        })
+      }
+      fetchData()
+    })
+  }).catch(() => {
+    ElMessage.info('取消操作')
+    ganttVue.value?.reload();
+  })
+}
+/**
+ * 删除关联关系
+ * @param {*} data 
+ */
+const onLinkDelete = (data) => {
+  const sourceItem = ganttData.value.find(item => item.id === data.source)?._origin_data
+  const reqData = {
+    id: data.source
+  }
+  if (sourceItem && sourceItem[config.col_next_no]) {
+    try {
+      let sourceData = JSON.parse(sourceItem[config.col_next_no])
+      if (Array.isArray(sourceData) && sourceData.length) {
+        sourceData = sourceData.filter(item => item[config.col_no] !== data.target)
+        reqData[config.col_next_no] = JSON.stringify(sourceData)
+      }
+    } catch (error) {
 
-const updateData = async (mode, data) => {
-  if (!config.srv_update) {
-    ElMessage.error('未配置编辑服务')
+    }
+  }
+  operateData(reqData, 'update').then(res => {
+    if (res) {
+      ElMessage({
+        type: "success",
+        message: "关联删除成功",
+      })
+    } else {
+      ElMessage.error('关联删除失败')
+    }
+    fetchData()
+  })
+}
+/**
+ * 新增关联关系
+ * @param {*} data 
+ * @param {*} source 来源节点
+ * @param {*} target 目标节点
+ */
+const onLinkAdd = (data, source, target) => {
+  console.log('onLinkAdd', data, source, target);
+  if (data.type !== '0') {
+    ElMessage.error('只支持从一个节点结束连接到另一个节点的开始')
+    ganttVue.value?.reload();
     return
   }
-  const url = `/${config.srv_mapp}/update/${config.srv_update}`;
-  const reqData = {}
-  if (mode === 'progress') {
-    reqData[config.col_progress] = data.progress
-  } else if (mode === 'date') {
-    if (config.col_start_time) {
-      reqData[config.col_start_time] = dayjs(data.start_date).format("YYYY-MM-DD HH:mm:ss")
-    }
-    if (config.col_end_time) {
-      reqData[config.col_end_time] = dayjs(data.end_date).format("YYYY-MM-DD HH:mm:ss")
-    }
-    if (config.col_duration && config.col_duration_unit && data.duration) {
-      switch (config.col_duration_unit) {
-        case '日':
-          reqData[config.col_duration] = data.duration
-          break;
-        case '小时':
-          reqData[config.col_duration] = data.duration * 8
-          break;
+  if (config.col_next_no) {
+    const sourceItem = ganttData.value.find(item => item._origin_data[config.col_no] === source.id)?._origin_data
+    if (sourceItem) {
+      let nextData = [{
+        [config.col_title]: target.text,
+        [config.col_no]: target.id
+      }]
+      if (sourceItem[config.col_next_no]) {
+        if (typeof sourceItem[config.col_next_no] === 'string') {
+          try {
+            const _nextData = JSON.parse(sourceItem[config.col_next_no])
+            nextData.unshift(..._nextData)
+          } catch (error) {
+
+          }
+        } else if (Array.isArray(sourceItem[config.col_next_no]) && sourceItem[config.col_next_no].length) {
+          nextData.unshift(...sourceItem[config.col_next_no])
+        }
       }
+      nextData = uniqBy(nextData, config.col_no)
+      const newData = {
+        id: source.id,
+        [config.col_next_no]: JSON.stringify(nextData)
+      }
+      operateData(newData, 'update').then(res => {
+        if (res) {
+          ElMessage({
+            type: "success",
+            message: "关联成功",
+          });
+        } else {
+          ElMessage({
+            type: "error",
+            message: "操作失败",
+          });
+        }
+        fetchData()
+      })
+    }
+
+  }
+
+}
+
+
+/**
+ * 新增/修改/删除 数据
+ * @param {*} data 
+ * @param {*} type -add|update|delete 操作类型 
+ * @returns {boolean}
+ */
+const operateData = async (data, type = 'update') => {
+  const typeNameMap = {
+    'update': '编辑',
+    'add': '新增',
+    'delete': '删除'
+  }
+  if (type && typeNameMap[type] && !config[`srv_${type}`]) {
+    ElMessage.error(`未配置${type}服务`)
+    return
+  }
+  const url = `/${config.srv_mapp}/${type}/${config['srv_' + type]}`;
+  const reqData = {}
+  if (data.progress) {
+    reqData[config.col_progress] = data.progress
+  }
+  if (config.col_parent_no && data.parent && data.parent !== 0) {
+    reqData[config.col_parent_no] = data.parent
+  }
+  if (config.col_next_no && data[config.col_next_no]) {
+    // next节点 数组JSON字符串
+    reqData[config.col_next_no] = data[config.col_next_no]
+  }
+  if (config.col_pre_no && data[config.col_pre_no]) {
+    // pre节点 数组JSON字符串
+    reqData[config.col_pre_no] = data[config.col_pre_no]
+  }
+  if (config.col_title && data.text) {
+    reqData[config.col_title] = data.text
+  }
+  if (config.col_start_time && data.start_date) {
+    reqData[config.col_start_time] = dayjs(data.start_date).format("YYYY-MM-DD HH:mm:ss")
+  }
+  if (config.col_end_time && data.end_date) {
+    reqData[config.col_end_time] = dayjs(data.end_date).format("YYYY-MM-DD HH:mm:ss")
+  }
+
+  if (config.col_duration && config.col_duration_unit && data.duration) {
+
+    switch (config.col_duration_unit) {
+      case '日':
+      case '天':
+        reqData[config.col_duration] = data.duration
+        break;
+      case '小时':
+      case '时':
+        // 日转为小时 一天8小时
+        reqData[config.col_duration] = data.duration * 8
+        break;
     }
   }
+
   const req = [
     {
-      serviceName: config.srv_update,
-      condition: [{ colName: config.col_no, ruleType: "eq", value: data.id }],
+      serviceName: config[`srv_${type}`],
+      condition: [],
       data: [reqData],
     },
   ];
+  if (type === 'update' || type === 'delete') {
+    if (data.id) {
+      const id = ganttData.value.find(item => item[config.col_no] === data.id)
+      if (id) {
+        req[0].condition.push({ colName: id, ruleType: "eq", value: id })
+      } else {
+        req[0].condition.push({ colName: config.col_no, ruleType: "eq", value: data.id })
+      }
+    } else {
+      ElMessage.error('数据有误！no字段没有值')
+      return
+    }
+    if (type === 'delete') {
+      req[0].data = []
+    }
+  }
   const res = await $http.post(url, req);
   if (res.data.state === "SUCCESS") {
     return true
@@ -348,8 +564,9 @@ onUnmounted(() => {
 
 <template>
   <div class="page-wrap" v-loading="loading">
-    <gantt-vue :data="ganttData" :columns="ganttColumns" @onTaskUpdate="onTaskUpdate" @onTaskDblClick="onTaskDblClick"
-      @date-change="dateChange" @progress-change="progressChange" ref="ganttVue">
+    <gantt-vue :data="ganttData" :links="links" :columns="ganttColumns" @onTaskUpdate="onTaskUpdate"
+      @onTaskAdd="onTaskAdd" @onTaskDblClick="onTaskDblClick" @date-change="dateChange" @progress-change="progressChange"
+      @on-link-add="onLinkAdd" @on-link-delete="onLinkDelete" ref="ganttVue">
       <!-- <template #headerRight>
         <el-button size="" type="primary">保存</el-button>
       </template> -->
