@@ -26,12 +26,13 @@ import { useCloned } from "@vueuse/core";
 const emit = defineEmits([
   "onTaskDblClick",
   "onTaskUpdate",
+  "onTaskDelete",
+  'onTaskAdd',
   "date-change",
   "progress-change",
   "onLinkChange",
   'onLinkAdd',
   'onLinkDelete',
-  'onTaskAdd'
 ]);
 const exportTo = (type) => {
   switch (type) {
@@ -237,6 +238,7 @@ const zoomConfig = {
 //初始化甘特图
 const initGantt = () => {
   dhtmlxgantt.plugins({
+    quick_info: true,
     export_api: true,
     marker: true,
     tooltip: true, //鼠标划过任务是否显示明细
@@ -245,6 +247,35 @@ const initGantt = () => {
 
   });
   dhtmlxgantt.config.duration_unit = props.durationUnit;
+  gantt.config.keyboard_navigation_cells = true; //激活表格相关快捷键
+  dhtmlxgantt.config.lightbox.sections = [
+    { name: "description", height: 58, map_to: "text", type: "textarea", focus: true, 'default_value': '新任务' },
+    { name: "time", type: "duration", map_to: "auto" }
+  ];
+
+  gantt.templates.quick_info_date = function (start, end, task) {
+    var dateToStr = gantt.date.date_to_str("%Y-%m-%d %H:%i");
+    var startDate = dateToStr(start);
+    var endDate = dateToStr(end);
+    return `${startDate} 至 ${endDate}`
+  };
+
+  gantt.templates.lightbox_header = function (start_date, end_date, task) {
+    var dateToStr = gantt.date.date_to_str("%Y-%m-%d");
+
+    return dateToStr(start_date) + ' 至 ' + dateToStr(end_date)
+  };
+  gantt.templates.task_date = function (date) {
+    return `截止日期：${gantt.date.date_to_str(gantt.config.task_date)(date)}`;
+  };
+
+  gantt.config.quickinfo_buttons = ["icon_delete"];
+  // gantt.config.quickinfo_buttons = ["icon_delete", "icon_edit", "advanced_details_button"];
+  // gantt.locale.labels["advanced_details_button"] = "hahaha";
+  // gantt.$click.buttons.advanced_details_button = function (id) {
+  //   gantt.message("These are advanced details");
+  //   return false; //blocks the default behavior
+  // };
   dhtmlxgantt.config.grid_width = 350;
   dhtmlxgantt.config.add_column = false; //添加符号
 
@@ -257,6 +288,7 @@ const initGantt = () => {
   dhtmlxgantt.config.fit_tasks = true //自动延长时间刻度，以适应所有显示的任务
   dhtmlxgantt.config.auto_types = true; //将包含子任务的任务转换为项目，将没有子任务的项目转换回任务
   dhtmlxgantt.config.date_format = "%Y-%m-%d %H:%i"; //甘特图时间格式
+  gantt.config.task_date = '%Y-%m-%d'
   dhtmlxgantt.config.readonly = false; //是否只读
   dhtmlxgantt.i18n.setLocale("cn"); //设置语言
   dhtmlxgantt.config.start_on_monday = true; //是否从周一显示起始时间---右侧条形图
@@ -342,6 +374,8 @@ const initGantt = () => {
   dhtmlxgantt.setWorkTime({ hours: ["14:00-19:00"] });
   // dhtmlxgantt.config.redo = true;
   // dhtmlxgantt.config.undo = true;
+
+
   dhtmlxgantt.init(ganttRef.value);
   dhtmlxgantt.attachEvent("onAfterLinkDelete", function (id, item) {
     // 删除节点之间的连接关系
@@ -406,6 +440,7 @@ const initGantt = () => {
   gantt.attachEvent("onAfterTaskDelete", function (id, item) {
     //删除节点
     console.log("删除节点", id, item);
+    emit('onTaskDelete', id)
   });
   dhtmlxgantt.attachEvent("onTaskDblClick", function (id, e) {
     emit("onTaskDblClick", id);
@@ -529,7 +564,7 @@ body .gantt_cal_larea {
     }
 
     span {
-      display: none;
+      // display: none;
     }
   }
 }

@@ -359,6 +359,18 @@ const progressChange = (newVal) => {
 const onTaskUpdate = (id, mode, newVal) => {
   console.log("onTaskUpdate", id, mode, newVal);
 };
+const onTaskDelete = (id) => {
+  ElMessageBox.confirm(`确定删除任务?`, "提示", {
+    confirmButtonText: "确认",
+    cancelButtonText: "取消",
+    type: "warning",
+  }).then(() => {
+    operateData({ id }, 'delete')
+  }).catch(() => {
+    ElMessage.info('取消操作')
+    ganttVue.value?.reload();
+  })
+}
 const onTaskAdd = (data) => {
   console.log("onTaskAdd", data);
   ElMessageBox.confirm(`确定添加任务${data.text}?`, "提示", {
@@ -571,8 +583,8 @@ onUnmounted(() => {
 <template>
   <div class="page-wrap" v-loading="loading">
     <gantt-vue :data="ganttData" :links="links" :columns="ganttColumns" @onTaskUpdate="onTaskUpdate"
-      @onTaskAdd="onTaskAdd" @onTaskDblClick="onTaskDblClick" @date-change="dateChange" @progress-change="progressChange"
-      @on-link-add="onLinkAdd" @on-link-delete="onLinkDelete" ref="ganttVue">
+      @onTaskAdd="onTaskAdd" @onTaskDelete="onTaskDelete" @onTaskDblClick="onTaskDblClick" @date-change="dateChange"
+      @progress-change="progressChange" @on-link-add="onLinkAdd" @on-link-delete="onLinkDelete" ref="ganttVue">
       <!-- <template #headerRight>
         <el-button size="" type="primary">保存</el-button>
       </template> -->
