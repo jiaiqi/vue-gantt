@@ -270,7 +270,12 @@ const initColumns = (config = {}) => {
     });
   }
   columns.push(
-    { name: "add", label: "-" }
+    { name: "add", label: "-", width: 50 },
+    // {
+    //   name: "del", label: "删除", width: 50, template: function (obj) {
+    //     return `<span style="color:red;cursor:pointer">-</span>`;
+    //   },
+    // },
   )
   return columns;
 };
@@ -282,6 +287,7 @@ const onTaskDblClick = (id) => {
     addTabByUrl(url, data.text);
   }
 };
+
 const dateChange = (newVal) => {
   console.log("datechange", newVal);
   const start = dayjs(newVal.start_date).format("YYYY-MM-DD")

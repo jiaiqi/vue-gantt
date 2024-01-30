@@ -4,16 +4,21 @@
       <el-select v-model="dateType" class="m-2" placeholder="Select" size="" style="width: 80px" @change="changeDateType">
         <el-option v-for="item in dateOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
+      <el-button @click="changeToday">今日</el-button>
     </div>
     <div>
-      <slot name="headerRight"></slot>
+      <slot name="headerRight">
+        <!-- <el-button @click="exportTo('png')">导出png</el-button>
+        <el-button @click="exportTo('pdf')">导出pdf</el-button>
+        <el-button @click="exportTo('excel')">导出excel</el-button> -->
+      </slot>
     </div>
   </div>
   <div ref="ganttRef" id="gantt_here" class="gantt-main" style="width: 100%; height: 100%"></div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, nextTick } from "vue";
 import { gantt as dhtmlxgantt, gantt } from "dhtmlx-gantt";
 import "dhtmlx-gantt/codebase/skins/dhtmlxgantt_material.css";
 import dayjs from "dayjs";
@@ -28,6 +33,20 @@ const emit = defineEmits([
   'onLinkDelete',
   'onTaskAdd'
 ]);
+const exportTo = (type) => {
+  switch (type) {
+    case 'png':
+      dhtmlxgantt.exportToPNG()
+      break;
+
+    case 'pdf':
+      dhtmlxgantt.exportToPDF()
+      break;
+    case 'excel':
+      dhtmlxgantt.exportToExcel()
+      break;
+  }
+}
 const ganttRef = ref(null);
 const dateType = ref("week");
 const dateOptions = [
@@ -217,6 +236,14 @@ const zoomConfig = {
 
 //初始化甘特图
 const initGantt = () => {
+  dhtmlxgantt.plugins({
+    export_api: true,
+    marker: true,
+    tooltip: true, //鼠标划过任务是否显示明细
+    // auto_scheduling: true,//根据任务之间的关系自动安排任务
+    // multiselect: true, //为任务激活多任务选择
+
+  });
   dhtmlxgantt.config.duration_unit = props.durationUnit;
   dhtmlxgantt.config.grid_width = 350;
   dhtmlxgantt.config.add_column = false; //添加符号
@@ -236,8 +263,8 @@ const initGantt = () => {
   // if (props.scales?.length) {
   //   dhtmlxgantt.config.scales = props.scales //设置时间刻度
   // }
-  gantt.ext.zoom.init(zoomConfig); //配置初始化扩展
-  gantt.ext.zoom.setLevel(props.dateLevel); //切换到指定的缩放级别
+  dhtmlxgantt.ext.zoom.init(zoomConfig); //配置初始化扩展
+  dhtmlxgantt.ext.zoom.setLevel(props.dateLevel); //切换到指定的缩放级别
 
   //   var monthScaleTemplate = function (date) {
   //     var dateToStr = gantt.date.date_to_str("%M");
@@ -293,11 +320,6 @@ const initGantt = () => {
       },
     ],
   };
-  dhtmlxgantt.plugins({
-    tooltip: true, //鼠标划过任务是否显示明细
-    // auto_scheduling: true,//根据任务之间的关系自动安排任务
-    // multiselect: true, //为任务激活多任务选择
-  });
   dhtmlxgantt.templates.tooltip_text = function (start, end, task) {
     return (
       "<b>标题:</b> " +
@@ -323,7 +345,7 @@ const initGantt = () => {
   dhtmlxgantt.init(ganttRef.value);
   dhtmlxgantt.attachEvent("onAfterLinkDelete", function (id, item) {
     // 删除节点之间的连接关系
-    emit('onLinkDelete',item)
+    emit('onLinkDelete', item)
 
   });
   dhtmlxgantt.attachEvent("onAfterLinkUpdate", function (id, item) {
@@ -371,7 +393,6 @@ const initGantt = () => {
   //   return false; //阻止默认双击事件
   // });
   dhtmlxgantt.attachEvent("onAfterTaskAdd", function (id, item) {
-    console.log('onAfterTaskAdd', id, item);
     const { duration, end_date, parent, progress, start_date, text } = item;
     emit('onTaskAdd', {
       duration,
@@ -381,13 +402,45 @@ const initGantt = () => {
       start_date,
       text,
     });
-    //any custom logic here
+  });
+  gantt.attachEvent("onAfterTaskDelete", function (id, item) {
+    //删除节点
+    console.log("删除节点", id, item);
   });
   dhtmlxgantt.attachEvent("onTaskDblClick", function (id, e) {
     emit("onTaskDblClick", id);
     return false;
   });
+
+  setTimeout(() => {
+    createTodayLine()
+  }, 500);
 };
+
+
+
+// 创建今日线
+const todayMarker = ref('')
+const createTodayLine = () => {
+  var dateToStr = dhtmlxgantt.date.date_to_str("%Y年%M%d日");
+  todayMarker.value = gantt.addMarker({
+    id: 'markerLine',
+    start_date: new Date(),
+    css: "today",
+    text: "现在",
+    title: dateToStr(new Date())
+  });
+  dhtmlxgantt.updateMarker(todayMarker.value);
+}
+//定位到今日线
+const changeToday = () => {
+  nextTick(() => {
+    let ganTT = document.getElementsByClassName('gantt_marker today')
+    // ganTT = dhtmlxgantt.getMarker(todayMarker.value)
+    dhtmlxgantt.scrollTo(ganTT[0].offsetLeft - 300, null);
+  })
+}
+
 
 const reload = () => {
   const oldData = useCloned(ganttData.value || []).cloned.value;
