@@ -56,13 +56,14 @@ const dateOptions = [
     value: "year",
   },
   {
-    label: "月",
-    value: "month",
-  },
-  {
     label: "季度",
     value: "quarter",
   },
+  {
+    label: "月",
+    value: "month",
+  },
+
   {
     label: "周",
     value: "week",
@@ -238,7 +239,7 @@ const zoomConfig = {
 //初始化甘特图
 const initGantt = () => {
   dhtmlxgantt.plugins({
-    quick_info: true,
+    quick_info: false,
     export_api: true,
     marker: true,
     tooltip: true, //鼠标划过任务是否显示明细
@@ -253,12 +254,12 @@ const initGantt = () => {
     { name: "time", type: "duration", map_to: "auto" }
   ];
 
-  gantt.templates.quick_info_date = function (start, end, task) {
-    var dateToStr = gantt.date.date_to_str("%Y-%m-%d %H:%i");
-    var startDate = dateToStr(start);
-    var endDate = dateToStr(end);
-    return `${startDate} 至 ${endDate}`
-  };
+  // gantt.templates.quick_info_date = function (start, end, task) {
+  //   var dateToStr = gantt.date.date_to_str("%Y-%m-%d %H:%i");
+  //   var startDate = dateToStr(start);
+  //   var endDate = dateToStr(end);
+  //   return `${startDate} 至 ${endDate}`
+  // };
 
   gantt.templates.lightbox_header = function (start_date, end_date, task) {
     var dateToStr = gantt.date.date_to_str("%Y-%m-%d");
@@ -417,11 +418,16 @@ const initGantt = () => {
     } else if (mode === 'move') {
       emit("move-change", data);
     }
-    // emit('onTaskUpdate', id, mode, task)
   });
 
   dhtmlxgantt.attachEvent("onAfterTaskUpdate", (id, item) => {
     // console.log('onAfterTaskUpdate', id, { ...item });
+    if (item.text !== item._init_data.text) {
+      emit('onTaskUpdate', id, { ...item })
+    }
+    // if (Object.keys(item._init_data).some((key) => !['start_date', 'end_date'].includes(item.key) && item.key==='text' && item[key] !== item._init_data[key])) {
+    //   emit('onTaskUpdate', id, { ...item })
+    // }
   });
   // dhtmlxgantt.attachEvent("onLinkDblClick", function (id, e) {
   //   return false; //阻止默认双击事件

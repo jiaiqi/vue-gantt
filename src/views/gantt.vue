@@ -29,8 +29,8 @@ const config = reactive({
   // col_no: "wbs_no",
   // col_parent_no: "parent_no",
   // col_foldl:'open'
-  col_pre_no: 'wbs_no_pre',
-  col_next_no: 'wbs_no_next',
+  // col_no_pre: 'wbs_no_pre',
+  // col_no_next: 'wbs_no_next',
 });
 const route = useRoute();
 const ganttVue = ref(null);
@@ -68,18 +68,22 @@ const fetchData = async () => {
   }
   originData.value = res.data.data;
   ganttData.value = initGanttData(res.data.data, config);
-  links.value = buildLinks(res.data.data)
+  if (config.col_no_next || config.col_no_pre) {
+    links.value = buildLinks(res.data.data)
+  }
   ganttColumns.value = initColumns(config);
 };
+
+
 const buildLinks = (datas) => {
   const links = [];
   if (Array.isArray(datas) && datas.length) {
     datas.forEach(item => {
-      if (item[config.col_pre_no]) {
+      if (item[config.col_no_pre]) {
         // 当前节点的前置节点
-        if (typeof item[config.col_pre_no] === 'string') {
+        if (typeof item[config.col_no_pre] === 'string') {
           try {
-            const arr = JSON.parse(item[config.col_pre_no])
+            const arr = JSON.parse(item[config.col_no_pre])
             if (Array.isArray(arr) && arr.length) {
               arr.forEach(data => {
                 links.push({
@@ -95,11 +99,11 @@ const buildLinks = (datas) => {
           }
         }
       }
-      if (item[config.col_next_no]) {
+      if (item[config.col_no_next]) {
         // 当前节点的后置节点
-        if (typeof item[config.col_next_no] === 'string') {
+        if (typeof item[config.col_no_next] === 'string') {
           try {
-            const arr = JSON.parse(item[config.col_next_no])
+            const arr = JSON.parse(item[config.col_no_next])
             if (Array.isArray(arr) && arr.length) {
               arr.forEach(data => {
                 links.push({
@@ -155,8 +159,9 @@ const getGanttCfg = async () => {
         "col_no",
         "col_parent_no",
         "col_fold",//是否折叠
-        "col_pre_no",//来源编号字段 值可以为数组
-        "col_next_no",//目标编号字段 值可以为数组
+        "col_no_pre",//前置节点字段 值可以为数组
+        "col_no_next",//后置节点字段 值可以为数组
+        'table_cols',//左侧表格显示字段
       ];
       keys.forEach((key) => {
         if (res.data.data[0][key]) {
@@ -209,37 +214,14 @@ const initGanttData = (data = [], config = {}) => {
     };
   });
 };
+
 const initColumns = (config = {}) => {
-  const columns = [
+  let columns = [
     {
       name: "text",
       label: "标题",
       tree: true,
-      // width: 200,
-      // template: function (obj) {
-      //   return `<span style="cursor:pointer" title="${obj.text}">${obj.text}</span>`;
-      // },
     },
-    // {
-    //   name: "status",
-    //   label: "状态",
-    //   align: "center",
-    //   template: function (obj) {
-    //     let result = "";
-    //     const statusMp = {
-    //       待安排: "1",
-    //       已安排: "2",
-    //       进行中: "3",
-    //       待验收: "4",
-    //       已完成: "5",
-    //       挂起: "6",
-    //       关闭: "7",
-    //     };
-    //     result = `<div class="progress status-${statusMp[obj.status]
-    //       }"><div class="text">${obj.status}</div></div>`;
-    //     return result;
-    //   },
-    // },
     {
       name: "progress",
       label: "进度",
@@ -277,6 +259,44 @@ const initColumns = (config = {}) => {
     //   },
     // },
   )
+  if (config.table_cols) {
+    const cols = config.table_cols.split(',')
+    columns = []
+    var textEditor = { type: "text", map_to: "text" };
+    // var dateEditor = {
+    //   type: "date", map_to: "start_date", min: new Date(1950, 0, 1),
+    //   max: new Date(2100, 0, 1)
+    // };
+    // var durationEditor = { type: "number", map_to: "duration", min: 0 };
+    const colsMap = {
+      '名称': { name: "text", label: "标题", tree: true, editor: textEditor },
+      '编号': { name: "id", label: "编号" },
+      '预估时长': {
+        name: "duration", label: "预估时长", width: 65, align: 'center', template: (obj) => {
+          if (obj.duration) {
+            return `<span>${obj.duration}${config.col_duration_unit}</span>`
+          } else {
+            return '-'
+          }
+        }
+      },
+      '进度': {
+        name: "progress", label: "进度", align: 'center', width: 65, template: function (obj) {
+          if (obj.progress) {
+            return `<div class="progress">${parseInt(obj.progress * 100)}%</div>`;
+          } else {
+            return "-";
+          }
+        },
+      },
+      '开始时间': { name: "start_date", label: "开始时间", align: 'center' },
+      '结束时间': { name: "end_date", label: "结束时间", align: 'center' },
+      '添加按钮': { name: "add", label: "", width: 50, align: 'center' },
+    }
+    cols.forEach(col => {
+      columns.push(colsMap[col])
+    })
+  }
   return columns;
 };
 const onTaskDblClick = (id) => {
@@ -287,6 +307,7 @@ const onTaskDblClick = (id) => {
     addTabByUrl(url, data.text);
   }
 };
+
 
 const dateChange = (newVal) => {
   console.log("datechange", newVal);
@@ -356,8 +377,17 @@ const progressChange = (newVal) => {
       ganttVue.value?.reload();
     });
 };
-const onTaskUpdate = (id, mode, newVal) => {
-  console.log("onTaskUpdate", id, mode, newVal);
+const onTaskUpdate = (id, data,) => {
+  console.log("onTaskUpdate", id, data);
+  operateData({ id, text: data.text }, 'update').then(res => {
+    if (res) {
+      ElMessage({
+        type: "success",
+        message: "修改成功",
+      })
+    }
+    fetchData()
+  })
 };
 const onTaskDelete = (id) => {
   ElMessageBox.confirm(`确定删除任务?`, "提示", {
@@ -401,12 +431,12 @@ const onLinkDelete = (data) => {
   const reqData = {
     id: data.source
   }
-  if (sourceItem && sourceItem[config.col_next_no]) {
+  if (sourceItem && sourceItem[config.col_no_next]) {
     try {
-      let sourceData = JSON.parse(sourceItem[config.col_next_no])
+      let sourceData = JSON.parse(sourceItem[config.col_no_next])
       if (Array.isArray(sourceData) && sourceData.length) {
         sourceData = sourceData.filter(item => item[config.col_no] !== data.target)
-        reqData[config.col_next_no] = JSON.stringify(sourceData)
+        reqData[config.col_no_next] = JSON.stringify(sourceData)
       }
     } catch (error) {
 
@@ -437,29 +467,29 @@ const onLinkAdd = (data, source, target) => {
     ganttVue.value?.reload();
     return
   }
-  if (config.col_next_no) {
+  if (config.col_no_next) {
     const sourceItem = ganttData.value.find(item => item._origin_data[config.col_no] === source.id)?._origin_data
     if (sourceItem) {
       let nextData = [{
         [config.col_title]: target.text,
         [config.col_no]: target.id
       }]
-      if (sourceItem[config.col_next_no]) {
-        if (typeof sourceItem[config.col_next_no] === 'string') {
+      if (sourceItem[config.col_no_next]) {
+        if (typeof sourceItem[config.col_no_next] === 'string') {
           try {
-            const _nextData = JSON.parse(sourceItem[config.col_next_no])
+            const _nextData = JSON.parse(sourceItem[config.col_no_next])
             nextData.unshift(..._nextData)
           } catch (error) {
 
           }
-        } else if (Array.isArray(sourceItem[config.col_next_no]) && sourceItem[config.col_next_no].length) {
-          nextData.unshift(...sourceItem[config.col_next_no])
+        } else if (Array.isArray(sourceItem[config.col_no_next]) && sourceItem[config.col_no_next].length) {
+          nextData.unshift(...sourceItem[config.col_no_next])
         }
       }
       nextData = uniqBy(nextData, config.col_no)
       const newData = {
         id: source.id,
-        [config.col_next_no]: JSON.stringify(nextData)
+        [config.col_no_next]: JSON.stringify(nextData)
       }
       operateData(newData, 'update').then(res => {
         if (res) {
@@ -506,13 +536,13 @@ const operateData = async (data, type = 'update') => {
   if (config.col_parent_no && data.parent && data.parent !== 0) {
     reqData[config.col_parent_no] = data.parent
   }
-  if (config.col_next_no && data[config.col_next_no]) {
+  if (config.col_no_next && data[config.col_no_next]) {
     // next节点 数组JSON字符串
-    reqData[config.col_next_no] = data[config.col_next_no]
+    reqData[config.col_no_next] = data[config.col_no_next]
   }
-  if (config.col_pre_no && data[config.col_pre_no]) {
+  if (config.col_no_pre && data[config.col_no_pre]) {
     // pre节点 数组JSON字符串
-    reqData[config.col_pre_no] = data[config.col_pre_no]
+    reqData[config.col_no_pre] = data[config.col_no_pre]
   }
   if (config.col_title && data.text) {
     reqData[config.col_title] = data.text
