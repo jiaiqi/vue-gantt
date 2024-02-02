@@ -70,7 +70,10 @@ const fetchData = async () => {
       data: paths,
     },
   };
+  loading.value = true;
   const res = await $http.post(url, req);
+  loading.value = false;
+
   if (res?.data?.resultCode === '0011') {
     openLoginDialog()
     return
@@ -200,15 +203,23 @@ const getGanttCfg = async () => {
 const initGanttData = (data = [], config = {}) => {
   return data.map((item) => {
     const obj = {
-
+      id: item[config.col_no],
+      text: item[config.col_title],
+      open: item[config.col_fold] === "否" || true,
+      parent: item[config.col_parent_no],
+      progress: item[config.col_progress] / 100,
+      start_date: item[config.col_start_time],
+      end_date: item[config.col_end_time],
+      duration: item[config.col_duration],
+      status: item[config.col_status],
     };
-    obj.id = item[config.col_no];
-    obj.text = item[config.col_title];
-    obj.open = item[config.col_fold] === "否" || true;
-    obj.parent = item[config.col_parent_no];
-    obj.progress = item[config.col_progress] / 100;
-    obj.start_date = item[config.col_start_time];
-    obj.end_date = item[config.col_end_time];
+    // obj.id = item[config.col_no];
+    // obj.text = item[config.col_title];
+    // obj.open = item[config.col_fold] === "否" || true;
+    // obj.parent = item[config.col_parent_no];
+    // obj.progress = item[config.col_progress] / 100;
+    // obj.start_date = item[config.col_start_time];
+    // obj.end_date = item[config.col_end_time];
     // 默认单位为天
     if (['时', '小时'].includes(config.col_duration_unit)) {
       obj.duration = item[config.col_progress] / 8;
@@ -222,7 +233,7 @@ const initGanttData = (data = [], config = {}) => {
     } else if (!obj.duration && obj.start_date && obj.end_date) {
       obj.duration = dayjs(obj.end_date).diff(obj.start_date, "day");
     }
-    obj.status = item[config.statusCol];
+    obj.status = item[config.col_status];
     return {
       ...obj,
       _init_data: { ...obj },
@@ -316,10 +327,9 @@ const initColumns = (config = {}) => {
   return columns;
 };
 const onTaskDblClick = (id) => {
-  console.log("onTaskDblClick", id);
   const data = ganttData.value.find((item) => item._origin_data[config.col_no] === id);
   if (data?._origin_data?.id) {
-    let url = `/vpages/#/detail/${config.srv_select}/${data._origin_data.id}?srvApp=${config.srv_mapp}&broadCastId=${broadCastId.value}`;
+    let url = `/vpages/#/detail/${config.srv_select}/${data._origin_data.id}?srvApp=${config.srv_mapp}&broadCastName=${broadCastName.value}`;
     if (['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname)) {
       url = `https://login.100xsys.cn${url}`
     }
@@ -641,16 +651,23 @@ const { data: cData } = useBroadcastChannel({ name: broadCastName.value })
 watch(cData, () => {
   console.log('从新tab接收到消息：', cData.value);
   if (cData.value && cData.value.includes('{')) {
-    const data = JSON.parse(cData.value)
-    if (data?.event === 'submit') {
-      ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
+    try {
+      const data = JSON.parse(cData.value)
+      if (data?.event === 'submit') {
+        // ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
+        //   confirmButtonText: '确定',
+        //   cancelButtonText: '取消',
+        //   type: 'warning'
+        // }).then(() => {
         // 刷新页面
-        initPage()
-      })
+        ElMessage.success('检测到数据发生变化,即将刷新页面')
+        console.log('检测到数据发生变化,即将刷新页面', cData.value);
+        fetchData()
+        cData.value = ''
+        // })
+      }
+    } catch (error) {
+      console.log(error);
     }
   }
 })
@@ -662,7 +679,7 @@ onMounted(() => {
   //   // 处理接收到的消息
   //   try {
   //     const data = JSON.parse(event.data)
-  //     if (data?.event === 'submit' && data.broadCastId === broadCastId.value) {
+  //     if (data?.event === 'submit' && data.broadCastName === broadCastName.value) {
   //       ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
   //         confirmButtonText: '确定',
   //         cancelButtonText: '取消',
