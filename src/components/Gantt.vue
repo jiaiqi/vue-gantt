@@ -6,6 +6,11 @@
       </el-select>
       <el-button @click="changeToday">今日</el-button>
     </div>
+    <div style="text-align: center;">
+      <slot name="headerCenter">
+      </slot>
+
+    </div>
     <div>
       <slot name="headerRight">
         <!-- <el-button @click="exportTo('png')">导出png</el-button>
@@ -18,7 +23,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { gantt as dhtmlxgantt, gantt } from "dhtmlx-gantt";
 import "dhtmlx-gantt/codebase/skins/dhtmlxgantt_material.css";
 import dayjs from "dayjs";
@@ -134,7 +139,7 @@ const props = defineProps({
 
 const zoomConfig = {
   levels: [
-  {
+    {
       name: "hour",
       scale_height: 60,
       min_column_width: 40,
@@ -369,11 +374,11 @@ const initGantt = () => {
   };
   dhtmlxgantt.templates.tooltip_text = function (start, end, task) {
     let startDate = dayjs(start).format("YYYY-MM-DD HH:mm:ss");
-    if(startDate?.includes('00:00:00')){
+    if (startDate?.includes('00:00:00')) {
       startDate = dayjs(start).format("YYYY-MM-DD");
     }
     let endDate = dayjs(end).format("YYYY-MM-DD HH:mm:ss");
-    if(endDate?.includes('00:00:00')){
+    if (endDate?.includes('00:00:00')) {
       endDate = dayjs(end).format("YYYY-MM-DD");
     }
     return (
@@ -562,6 +567,9 @@ watch(
 );
 onMounted(() => {
   initGantt();
+});
+onUnmounted(() => {
+  dhtmlxgantt.destructor();
 });
 defineExpose({
   reload,

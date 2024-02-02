@@ -1,5 +1,7 @@
 export const addTabByUrl = function (url, tab_title, urlParams, type) {
-  url = url + "?data=" + urlParams;
+  if (urlParams) {
+    url = url + "?data=" + urlParams;
+  }
   let page = {
     title: tab_title || "新标页签",
     url,

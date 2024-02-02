@@ -7,7 +7,15 @@ import { $http } from "../common/http";
 import { addTabByUrl } from "../common/utils/index";
 import dayjs from "dayjs";
 import GanttVue from "@/components/Gantt.vue";
+import loginDialog from "@/components/loginDialog.vue";
 
+defineOptions({
+  inheritAttrs: false,
+  customOptions: {
+    name: "GanttView"
+  }
+})
+const loginRef = ref(null)
 const page = reactive({ pageNo: 1, rownumber: 500, total: 0 });
 // {id: 1, text: "Project #2", start_date: "2023-04-01", duration: 18, progress: 0.4, open: true }
 const originData = ref([]);
@@ -42,6 +50,9 @@ const parentNos =
   route.params.pIds ||
   "WBS2401300002,WBS2312250001,WBS2310140007,WBS2310140001,WBS2310300034";
 const fetchData = async () => {
+  if (!config.srv_mapp || !config.srv_select) {
+    return
+  }
   const url = `/${config.srv_mapp}/select/${config.srv_select}`;
   const paths = parentNos.split(",").map((item) => {
     return {
@@ -63,6 +74,10 @@ const fetchData = async () => {
     },
   };
   const res = await $http.post(url, req);
+  if (res?.data?.resultCode === '0011') {
+    openLoginDialog()
+    return
+  }
   if (res.data?.page?.total) {
     page.total = res.data.page.total;
   }
@@ -142,6 +157,10 @@ const getGanttCfg = async () => {
   };
   if (cfgNo) {
     const res = await $http.post(url, req);
+    if (res?.data?.resultCode === '0011') {
+      openLoginDialog()
+      return
+    }
     if (res.data.state === "SUCCESS" && res.data.data.length > 0) {
       const keys = [
         "srv_mapp",
@@ -301,9 +320,9 @@ const initColumns = (config = {}) => {
 };
 const onTaskDblClick = (id) => {
   console.log("onTaskDblClick", id);
-  const data = ganttData.value.find((item) => item._origin_data[config.idCol] === id);
+  const data = ganttData.value.find((item) => item._origin_data[config.col_no] === id);
   if (data?._origin_data?.id) {
-    const url = `/vpages/#/detail/${config.service}/${data._origin_data.id}`;
+    const url = `/vpages/#/detail/${config.srv_select}/${data._origin_data.id}`;
     addTabByUrl(url, data.text);
   }
 };
@@ -313,16 +332,16 @@ const dateChange = (newVal) => {
   console.log("datechange", newVal);
   const start = dayjs(newVal.start_date).format("YYYY-MM-DD")
   const end = dayjs(newVal.end_date).format("YYYY-MM-DD")
-  ElMessageBox.confirm(
-    `确定将起止日期修改为${start}至${end}?`,
-    "提示",
-    {
-      confirmButtonText: "确认",
-      cancelButtonText: "取消",
-      type: "warning",
-    }
-  )
-    .then(() => {
+  // ElMessageBox.confirm(
+  //   `确定将起止日期修改为${start}至${end}?`,
+  //   "提示",
+  //   {
+  //     confirmButtonText: "确认",
+  //     cancelButtonText: "取消",
+  //     type: "warning",
+  //   }
+  // )
+  //   .then(() => {
       operateData(newVal).then(res => {
         if (res) {
           ElMessage({
@@ -337,45 +356,45 @@ const dateChange = (newVal) => {
         }
         fetchData()
       })
-    })
-    .catch(() => {
-      ElMessage({
-        type: "info",
-        message: "取消修改",
-      });
-      ganttVue.value?.reload();
-    });
+    // })
+    // .catch(() => {
+    //   ElMessage({
+    //     type: "info",
+    //     message: "取消修改",
+    //   });
+    //   ganttVue.value?.reload();
+    // });
 };
 const progressChange = (newVal) => {
   console.log("progressChange", newVal);
-  ElMessageBox.confirm(`确定将进度修改为${newVal?.progress}%?`, "提示", {
-    confirmButtonText: "确认",
-    cancelButtonText: "取消",
-    type: "warning",
-  })
-    .then(() => {
-      operateData(newVal).then(res => {
-        if (res) {
-          ElMessage({
-            type: "success",
-            message: "修改成功",
-          });
-        } else {
-          ElMessage({
-            type: "error",
-            message: "修改失败",
-          });
-        }
-        fetchData()
-      })
-    })
-    .catch(() => {
+  // ElMessageBox.confirm(`确定将进度修改为${newVal?.progress}%?`, "提示", {
+  //   confirmButtonText: "确认",
+  //   cancelButtonText: "取消",
+  //   type: "warning",
+  // })
+  //   .then(() => {
+  operateData(newVal).then(res => {
+    if (res) {
       ElMessage({
-        type: "info",
-        message: "取消修改",
+        type: "success",
+        message: "修改成功",
       });
-      ganttVue.value?.reload();
-    });
+    } else {
+      ElMessage({
+        type: "error",
+        message: "修改失败",
+      });
+    }
+    fetchData()
+  })
+  // })
+  // .catch(() => {
+  //   ElMessage({
+  //     type: "info",
+  //     message: "取消修改",
+  //   });
+  //   ganttVue.value?.reload();
+  // });
 };
 const onTaskUpdate = (id, data,) => {
   console.log("onTaskUpdate", id, data);
@@ -593,21 +612,33 @@ const operateData = async (data, type = 'update') => {
     }
   }
   const res = await $http.post(url, req);
+  if (res?.data?.resultCode === '0011') {
+    openLoginDialog()
+    return
+  }
   if (res.data.state === "SUCCESS") {
     return true
   }
   return false
 };
 
-onMounted(async () => {
+const initPage = async () => {
   loading.value = true;
   await getGanttCfg();
   await fetchData();
   loading.value = false;
+}
+
+const openLoginDialog = () => {
+  loginRef.value?.open?.(() => {
+    initPage()
+  })
+}
+
+onMounted(() => {
+  initPage()
 });
-onUnmounted(() => {
-  gantt.destructor();
-});
+
 </script>
 
 <template>
@@ -615,10 +646,11 @@ onUnmounted(() => {
     <gantt-vue :data="ganttData" :links="links" :columns="ganttColumns" @onTaskUpdate="onTaskUpdate"
       @onTaskAdd="onTaskAdd" @onTaskDelete="onTaskDelete" @onTaskDblClick="onTaskDblClick" @date-change="dateChange"
       @progress-change="progressChange" @on-link-add="onLinkAdd" @on-link-delete="onLinkDelete" ref="ganttVue">
-      <!-- <template #headerRight>
-        <el-button size="" type="primary">保存</el-button>
-      </template> -->
+      <template #headerCenter>
+          <el-button @click="initPage">刷新</el-button>
+      </template>
     </gantt-vue>
+    <login-dialog ref="loginRef"></login-dialog>
   </div>
 </template>
 
