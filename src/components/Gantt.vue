@@ -72,6 +72,10 @@ const dateOptions = [
     label: "日",
     value: "day",
   },
+  {
+    label: "时",
+    value: "hour",
+  },
 ];
 const changeDateType = (type) => {
   dateType.value = type;
@@ -130,6 +134,16 @@ const props = defineProps({
 
 const zoomConfig = {
   levels: [
+  {
+      name: "hour",
+      scale_height: 60,
+      min_column_width: 40,
+      scales: [
+        { unit: "day", step: 1, format: "%Y年%m月%d日" },
+        { unit: "hour", step: 1, format: "%H点" },
+        { unit: "minute", step: 10, format: "%i分" },
+      ],
+    },
     {
       name: "day",
       scale_height: 60,
@@ -354,13 +368,23 @@ const initGantt = () => {
     ],
   };
   dhtmlxgantt.templates.tooltip_text = function (start, end, task) {
+    let startDate = dayjs(start).format("YYYY-MM-DD HH:mm:ss");
+    if(startDate?.includes('00:00:00')){
+      startDate = dayjs(start).format("YYYY-MM-DD");
+    }
+    let endDate = dayjs(end).format("YYYY-MM-DD HH:mm:ss");
+    if(endDate?.includes('00:00:00')){
+      endDate = dayjs(end).format("YYYY-MM-DD");
+    }
     return (
       "<b>标题:</b> " +
       task.text +
       "<br/><span>开始:</span> " +
-      dhtmlxgantt.templates.tooltip_date_format(start) +
+      startDate +
+      // dhtmlxgantt.templates.tooltip_date_format(start) +
       "<br/><span>结束:</span> " +
-      dhtmlxgantt.templates.tooltip_date_format(end) +
+      endDate +
+      // dhtmlxgantt.templates.tooltip_date_format(end) +
       "<br/><span>进度:</span> " +
       Math.round(task.progress * 100) +
       "%"
