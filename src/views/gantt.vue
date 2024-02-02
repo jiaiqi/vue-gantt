@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { ref, reactive, onMounted, watch } from "vue";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useRoute } from "vue-router";
 import { uniqBy, uniqueId } from 'lodash-es'
@@ -7,7 +7,8 @@ import { $http } from "../common/http";
 import { addTabByUrl } from "../common/utils/index";
 import dayjs from "dayjs";
 import GanttVue from "@/components/Gantt.vue";
-import loginDialog from "@/components/loginDialog.vue";
+import loginDialog from "@/components/LoginDialog.vue";
+import { useBroadcastChannel } from '../common/utils/broadcastChannel'
 
 defineOptions({
   inheritAttrs: false,
@@ -17,7 +18,6 @@ defineOptions({
 })
 const loginRef = ref(null)
 const page = reactive({ pageNo: 1, rownumber: 500, total: 0 });
-// {id: 1, text: "Project #2", start_date: "2023-04-01", duration: 18, progress: 0.4, open: true }
 const originData = ref([]);
 const ganttData = ref([]);
 const ganttColumns = ref([]);
@@ -40,15 +40,12 @@ const config = reactive({
   // col_no_pre: 'wbs_no_pre',
   // col_no_next: 'wbs_no_next',
 });
+const iframeSrc = ref('https://www.baidu.com/')
 const route = useRoute();
 const ganttVue = ref(null);
 const links = ref([]);
 const loading = ref(false);
-const parentNos =
-  route.query?.pIds ||
-  route.query?.pids ||
-  route.params.pIds ||
-  "WBS2401300002,WBS2312250001,WBS2310140007,WBS2310140001,WBS2310300034";
+const parentNos = route.query?.pIds || route.query?.pids || route.params.pIds
 const fetchData = async () => {
   if (!config.srv_mapp || !config.srv_select) {
     return
@@ -322,7 +319,10 @@ const onTaskDblClick = (id) => {
   console.log("onTaskDblClick", id);
   const data = ganttData.value.find((item) => item._origin_data[config.col_no] === id);
   if (data?._origin_data?.id) {
-    const url = `/vpages/#/detail/${config.srv_select}/${data._origin_data.id}`;
+    let url = `/vpages/#/detail/${config.srv_select}/${data._origin_data.id}?srvApp=${config.srv_mapp}&broadCastId=${broadCastId.value}`;
+    if (['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname)) {
+      url = `https://login.100xsys.cn${url}`
+    }
     addTabByUrl(url, data.text);
   }
 };
@@ -330,8 +330,8 @@ const onTaskDblClick = (id) => {
 
 const dateChange = (newVal) => {
   console.log("datechange", newVal);
-  const start = dayjs(newVal.start_date).format("YYYY-MM-DD")
-  const end = dayjs(newVal.end_date).format("YYYY-MM-DD")
+  // const start = dayjs(newVal.start_date).format("YYYY-MM-DD")
+  // const end = dayjs(newVal.end_date).format("YYYY-MM-DD")
   // ElMessageBox.confirm(
   //   `确定将起止日期修改为${start}至${end}?`,
   //   "提示",
@@ -342,28 +342,28 @@ const dateChange = (newVal) => {
   //   }
   // )
   //   .then(() => {
-      operateData(newVal).then(res => {
-        if (res) {
-          ElMessage({
-            type: "success",
-            message: "修改成功",
-          });
-        } else {
-          ElMessage({
-            type: "error",
-            message: "修改失败",
-          });
-        }
-        fetchData()
-      })
-    // })
-    // .catch(() => {
-    //   ElMessage({
-    //     type: "info",
-    //     message: "取消修改",
-    //   });
-    //   ganttVue.value?.reload();
-    // });
+  operateData(newVal).then(res => {
+    if (res) {
+      ElMessage({
+        type: "success",
+        message: "修改成功",
+      });
+    } else {
+      ElMessage({
+        type: "error",
+        message: "修改失败",
+      });
+    }
+    fetchData()
+  })
+  // })
+  // .catch(() => {
+  //   ElMessage({
+  //     type: "info",
+  //     message: "取消修改",
+  //   });
+  //   ganttVue.value?.reload();
+  // });
 };
 const progressChange = (newVal) => {
   console.log("progressChange", newVal);
@@ -635,8 +635,47 @@ const openLoginDialog = () => {
   })
 }
 
+// const channel = ref(null)
+const broadCastName = ref(uniqueId("broadCastName_"))
+const { data: cData } = useBroadcastChannel({ name: broadCastName.value })
+watch(cData, () => {
+  console.log('从新tab接收到消息：', cData.value);
+  if (cData.value && cData.value.includes('{')) {
+    const data = JSON.parse(cData.value)
+    if (data?.event === 'submit') {
+      ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // 刷新页面
+        initPage()
+      })
+    }
+  }
+})
 onMounted(() => {
   initPage()
+  // channel.value = new BroadcastChannel('myChannel');
+  // channel.value.onmessage = function (event) {
+  //   console.log('从新tab接收到消息：', event.data);
+  //   // 处理接收到的消息
+  //   try {
+  //     const data = JSON.parse(event.data)
+  //     if (data?.event === 'submit' && data.broadCastId === broadCastId.value) {
+  //       ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
+  //         confirmButtonText: '确定',
+  //         cancelButtonText: '取消',
+  //         type: 'warning'
+  //       }).then(() => {
+  //         // 刷新页面
+  //         initPage()
+  //       })
+  //     }
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // }
 });
 
 </script>
@@ -646,12 +685,15 @@ onMounted(() => {
     <gantt-vue :data="ganttData" :links="links" :columns="ganttColumns" @onTaskUpdate="onTaskUpdate"
       @onTaskAdd="onTaskAdd" @onTaskDelete="onTaskDelete" @onTaskDblClick="onTaskDblClick" @date-change="dateChange"
       @progress-change="progressChange" @on-link-add="onLinkAdd" @on-link-delete="onLinkDelete" ref="ganttVue">
-      <template #headerCenter>
-          <el-button @click="initPage">刷新</el-button>
+      <template #headerRight>
+        <el-button @click="initPage">刷新</el-button>
       </template>
     </gantt-vue>
-    <login-dialog ref="loginRef"></login-dialog>
   </div>
+  <div v-if="iframeSrc" class="iframe-box">
+    <iframe :src="iframeSrc" frameborder="0" style="width: 100%;height: 100%;"></iframe>
+  </div>
+  <login-dialog ref="loginRef"></login-dialog>
 </template>
 
 <style lang="scss">
@@ -693,5 +735,10 @@ onMounted(() => {
     color: #fff;
     background-color: #18df64;
   }
+}
+
+.iframe-box {
+  width: 350px;
+  height: 100vh;
 }
 </style>

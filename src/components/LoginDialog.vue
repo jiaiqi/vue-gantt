@@ -20,6 +20,7 @@
 <script>
 import { ElMessage } from 'element-plus'
 import { $http } from '../common/http'
+import { clearAllCookie } from '../common/utils'
 export default {
   data() {
     return {
@@ -56,6 +57,7 @@ export default {
       });
     },
     async login() {
+      clearAllCookie()
       const url = `/sso/operate/srvuser_login`
       const req = [{ "serviceName": "srvuser_login", "data": [{ "user_no": this.loginForm.username, "pwd": this.loginForm.password }] }]
       const res = await $http.post(url, req)

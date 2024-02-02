@@ -29,7 +29,7 @@ const getRootWindow = (_window) => {
   }
 };
 
-console.log("env:", import.meta.env);
+// console.log("env:", import.meta.env);
 
 export const $axios = axios.create({
   baseURL,
