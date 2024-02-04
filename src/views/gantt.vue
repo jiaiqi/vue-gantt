@@ -39,6 +39,8 @@ const config = reactive({
   // col_foldl:'open'
   // col_no_pre: 'wbs_no_pre',
   // col_no_next: 'wbs_no_next',
+  // day_to_hour
+  // month_to_day
 });
 const iframeSrc = ref('https://www.baidu.com/')
 const route = useRoute();
@@ -181,6 +183,8 @@ const getGanttCfg = async () => {
         "col_no_pre",//前置节点字段 值可以为数组
         "col_no_next",//后置节点字段 值可以为数组
         'table_cols',//左侧表格显示字段
+        "day_to_hour",//每天几小时
+        "month_to_day",//每月几天
       ];
       keys.forEach((key) => {
         if (res.data.data[0][key]) {
@@ -201,6 +205,8 @@ const getGanttCfg = async () => {
  * @param {*} config 甘特图字段映射配置
  */
 const initGanttData = (data = [], config = {}) => {
+  // 默认一天工作时长为8小时
+  const workHours = config["day_to_hour"] || 8;
   return data.map((item) => {
     const obj = {
       id: item[config.col_no],
@@ -213,6 +219,7 @@ const initGanttData = (data = [], config = {}) => {
       duration: item[config.col_duration],
       status: item[config.col_status],
     };
+
     // obj.id = item[config.col_no];
     // obj.text = item[config.col_title];
     // obj.open = item[config.col_fold] === "否" || true;
@@ -222,18 +229,37 @@ const initGanttData = (data = [], config = {}) => {
     // obj.end_date = item[config.col_end_time];
     // 默认单位为天
     if (['时', '小时'].includes(config.col_duration_unit)) {
-      obj.duration = item[config.col_progress] / 8;
+      obj.duration = item[config.col_duration] / workHours;
     } else {
-      obj.duration = item[config.col_progress];
+      obj.duration = item[config.col_duration];
     }
+
     if (!obj.start_date && obj.duration && obj.end_date) {
+      // 没有开始时间 有结束时间跟时长 计算开始时间
       obj.start_date = dayjs(obj.end_date).subtract(obj.duration, "day").format("YYYY-MM-DD");
     } else if (obj.duration && obj.start_date && !obj.end_date) {
+      // 只有开始时间和时长 计算结束时间
       obj.end_date = dayjs(obj.end_date).add(obj.duration, "day").format("YYYY-MM-DD");
     } else if (!obj.duration && obj.start_date && obj.end_date) {
+      // 只有开始时间和结束时间 计算时长
       obj.duration = dayjs(obj.end_date).diff(obj.start_date, "day");
+    } else if (!obj.start_date && !obj.end_date && item[config.col_duration]) {
+      // 没有开始时间和结束时间 有时长 默认当前时间为开始时间 计算开始时间跟结束时间
+      obj.start_date = dayjs().format("YYYY-MM-DD HH:mm:ss");
+      if (['时', '小时'].includes(config.col_duration_unit)) {
+        // 单位为小时 转换为天 按一天八小时
+        obj.end_date = dayjs().add(item[config.col_duration] / workHours, "day").format("YYYY-MM-DD HH:mm:ss");
+      } else {
+        // 单位为天
+        obj.end_date = dayjs().add(item[config.col_duration], "day").format("YYYY-MM-DD");
+      }
+    } else if (!obj.start_date && !obj.end_date && !item[config.col_duration]) {
+      // 没有开始时间和结束时间 没有时长 默认当天为开始时间 时长为1天(8h) 计算结束时间
+      obj.start_date = dayjs().format("YYYY-MM-DD");
+      obj.duration = 1;
+      obj.end_date = dayjs().add(1, "day").format("YYYY-MM-DD");
     }
-    obj.status = item[config.col_status];
+    // obj.status = item[config.col_status];
     return {
       ...obj,
       _init_data: { ...obj },
@@ -582,7 +608,7 @@ const operateData = async (data, type = 'update') => {
   if (config.col_end_time && data.end_date) {
     reqData[config.col_end_time] = dayjs(data.end_date).format("YYYY-MM-DD HH:mm:ss")
   }
-
+  const workHours = config['day_to_hour'] || 8 //默认一天八小时工作时长
   if (config.col_duration && config.col_duration_unit && data.duration) {
 
     switch (config.col_duration_unit) {
@@ -593,7 +619,7 @@ const operateData = async (data, type = 'update') => {
       case '小时':
       case '时':
         // 日转为小时 一天8小时
-        reqData[config.col_duration] = data.duration * 8
+        reqData[config.col_duration] = data.duration * workHours
         break;
     }
   }

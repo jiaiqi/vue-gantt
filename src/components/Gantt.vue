@@ -1,17 +1,19 @@
 <template>
   <div class="gantt-header">
     <div>
-      <el-select v-model="dateType" class="m-2" placeholder="Select" size="" style="width: 80px" @change="changeDateType">
+      <el-select v-model="dateType" placeholder="Select" size="" style="width: 60px" @change="changeDateType">
         <el-option v-for="item in dateOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-      <el-button @click="changeToday">今日</el-button>
+      <el-button @click="changeToday" style="margin-left: 12px;">今日</el-button>
+      <slot name="headerLeft"></slot>
     </div>
     <div style="text-align: center;">
       <slot name="headerCenter">
-      </slot>
 
+      </slot>
     </div>
     <div>
+
       <slot name="headerRight">
         <!-- <el-button @click="exportTo('png')">导出png</el-button>
         <el-button @click="exportTo('pdf')">导出pdf</el-button>
