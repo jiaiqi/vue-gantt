@@ -9,6 +9,7 @@ import dayjs from "dayjs";
 import GanttVue from "@/components/Gantt.vue";
 import loginDialog from "@/components/LoginDialog.vue";
 import { useBroadcastChannel } from '../common/utils/broadcastChannel'
+import { gantt } from "dhtmlx-gantt";
 
 defineOptions({
   inheritAttrs: false,
@@ -27,7 +28,8 @@ const iframeSrc = ref('https://www.baidu.com/')
 const route = useRoute();
 const ganttVue = ref(null);
 const links = ref([]);
-const loading = ref(false);
+// const loading = ref(false);
+const isFetch = ref(false);
 const parentNos = route.query?.pIds || route.query?.pids || route.params.pIds
 const fetchData = async () => {
   if (!config.srv_mapp || !config.srv_select) {
@@ -56,10 +58,17 @@ const fetchData = async () => {
   if (config.col_seq) {
     // req.order = [{ colName: config.col_seq, orderType: "asc" }]
   }
-  loading.value = true;
+  // isFetch.value = false
+  const loading = ElLoading.service({
+    lock: true,
+    text: '加载中...',
+    background: 'rgba(255, 255, 255, 0.5)',
+  })
+  setTimeout(() => {
+    loading.close()
+  }, 5000);
   const res = await $http.post(url, req);
-  loading.value = false;
-
+  loading.close()
   if (res?.data?.resultCode === '0011') {
     openLoginDialog()
     return
@@ -75,6 +84,7 @@ const fetchData = async () => {
     links.value = buildLinks(res.data.data)
   }
   ganttColumns.value = initColumns(config);
+  isFetch.value = true
 };
 
 
@@ -395,7 +405,6 @@ const dateChange = (newVal) => {
   //     type: "info",
   //     message: "取消修改",
   //   });
-  //   ganttVue.value?.reload();
   // });
 };
 const progressChange = (newVal) => {
@@ -403,9 +412,9 @@ const progressChange = (newVal) => {
   if (newVal.progress === oldVal.progress * 100) {
     return
   } else {
-    const index = ganttData.value.findIndex((item) => item.id === newVal.id)
-    ganttData.value[index].progress = newVal.progress / 100
-    console.log("progressChange", newVal.progress, oldVal.progress);
+    // const index = ganttData.value.findIndex((item) => item.id === newVal.id)
+    // ganttData.value[index].progress = newVal.progress / 100
+    // console.log("progressChange", newVal.progress, oldVal.progress);
   }
   // ElMessageBox.confirm(`确定将进度修改为${newVal?.progress}%?`, "提示", {
   //   confirmButtonText: "确认",
@@ -433,9 +442,21 @@ const progressChange = (newVal) => {
   //     type: "info",
   //     message: "取消修改",
   //   });
-  //   ganttVue.value?.reload();
   // });
 };
+const onMoveChange = (newVal) => {
+  console.log("onMoveChange", newVal);
+  const { start_date, end_date, id } = newVal
+  operateData({ start_date, end_date, id }, 'update').then(res => {
+    if (res) {
+      ElMessage({
+        type: "success",
+        message: "修改成功",
+      })
+    }
+  })
+}
+
 const onTaskUpdate = (id, data,) => {
   console.log('onTaskUpdate', id, data);
   operateData({ id, text: data.text }, 'update').then(res => {
@@ -445,7 +466,6 @@ const onTaskUpdate = (id, data,) => {
         message: "修改成功",
       })
     }
-    // fetchData()
   })
 };
 const onTaskDelete = (id) => {
@@ -457,7 +477,6 @@ const onTaskDelete = (id) => {
     operateData({ id }, 'delete')
   }).catch(() => {
     ElMessage.info('取消操作')
-    ganttVue.value?.reload();
   })
 }
 const onTaskAdd = (data) => {
@@ -478,7 +497,6 @@ const onTaskAdd = (data) => {
   })
   // }).catch(() => {
   //   ElMessage.info('取消操作')
-  //   ganttVue.value?.reload();
   // })
 }
 /**
@@ -523,7 +541,6 @@ const onLinkAdd = (data, source, target) => {
   console.log('onLinkAdd', data, source, target);
   if (data.type !== '0') {
     ElMessage.error('只支持从一个节点结束连接到另一个节点的开始')
-    // ganttVue.value?.reload();
     ganttVue.value?.deleteLink(data.id)
     return
   }
@@ -590,7 +607,12 @@ const operateData = async (data, type = 'update') => {
   }
   const url = `/${config.srv_mapp}/${type}/${config['srv_' + type]}`;
   const reqData = {}
-  if (data.progress||data.progress===0) {
+  if (data.progress || data.progress === 0) {
+    if (data.progress > 100) {
+      data.progress = 100
+    } else if (dateChange.progress > 0 && dateChange.progress < 1) {
+      data.progress *= 100
+    }
     reqData[config.col_progress] = data.progress
   }
   if (config.col_parent_no && data.parent && data.parent !== 0) {
@@ -664,11 +686,19 @@ const operateData = async (data, type = 'update') => {
 };
 
 const initPage = async () => {
-  loading.value = true;
+  const loading = ElLoading.service({
+    lock: true,
+    text: '加载中...',
+    background: 'rgba(255, 255, 255, .5)',
+  })
+  setTimeout(() => {
+    loading.close()
+  }, 3000)
   await getGanttCfg();
   await fetchData();
-  loading.value = false;
+  loading.close()
 }
+
 
 const openLoginDialog = () => {
   loginRef.value?.open?.(() => {
@@ -685,17 +715,17 @@ watch(cData, () => {
     try {
       const data = JSON.parse(cData.value)
       if (data?.event === 'submit') {
-        // ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
-        //   confirmButtonText: '确定',
-        //   cancelButtonText: '取消',
-        //   type: 'warning'
-        // }).then(() => {
-        // 刷新页面
-        ElMessage.success('检测到数据发生变化,即将刷新页面')
-        console.log('检测到数据发生变化,即将刷新页面', cData.value);
-        fetchData()
-        cData.value = ''
-        // })
+        ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          // 刷新页面
+          ElMessage.success('检测到数据发生变化,即将刷新页面')
+          console.log('检测到数据发生变化,即将刷新页面', cData.value);
+          fetchData()
+          cData.value = ''
+        })
       }
     } catch (error) {
       console.log(error);
@@ -704,43 +734,24 @@ watch(cData, () => {
 })
 onMounted(() => {
   initPage()
-  // channel.value = new BroadcastChannel('myChannel');
-  // channel.value.onmessage = function (event) {
-  //   console.log('从新tab接收到消息：', event.data);
-  //   // 处理接收到的消息
-  //   try {
-  //     const data = JSON.parse(event.data)
-  //     if (data?.event === 'submit' && data.broadCastName === broadCastName.value) {
-  //       ElMessageBox.confirm('检测到数据发生变化,是否刷新页面？', '提示', {
-  //         confirmButtonText: '确定',
-  //         cancelButtonText: '取消',
-  //         type: 'warning'
-  //       }).then(() => {
-  //         // 刷新页面
-  //         initPage()
-  //       })
-  //     }
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // }
 });
 
 </script>
 
 <template>
-  <div class="page-wrap" v-loading="loading">
+  <div class="page-wrap" v-if="isFetch">
     <gantt-vue :data="ganttData" :links="links" :columns="ganttColumns" @onTaskUpdate="onTaskUpdate"
       @onTaskAdd="onTaskAdd" @onTaskDelete="onTaskDelete" @onTaskDblClick="onTaskDblClick" @date-change="dateChange"
-      @progress-change="progressChange" @on-link-add="onLinkAdd" @on-link-delete="onLinkDelete" ref="ganttVue">
+      @progress-change="progressChange" @on-link-add="onLinkAdd" @on-link-delete="onLinkDelete"
+      @move-change="onMoveChange" ref="ganttVue">
       <template #headerRight>
-        <el-button @click="initPage">刷新</el-button>
+        <el-button @click="fetchData">刷新</el-button>
       </template>
     </gantt-vue>
   </div>
-  <div v-if="iframeSrc" class="iframe-box">
+  <!-- <div v-if="iframeSrc" class="iframe-box">
     <iframe :src="iframeSrc" frameborder="0" style="width: 100%;height: 100%;"></iframe>
-  </div>
+  </div> -->
   <login-dialog ref="loginRef"></login-dialog>
 </template>
 

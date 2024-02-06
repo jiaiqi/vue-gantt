@@ -10,9 +10,9 @@
     <div style="text-align: center;">
       <!-- <el-button @click="changeMinWidth('++')" style="margin-left: 12px;">放大*2</el-button> -->
       <el-button @click="changeMinWidth('+')" style="margin-left: 12px;">放大</el-button>
-      <el-button @click="changeMinWidth()" style="margin-left: 12px;" :disabled="min_column_width < 1">缩小</el-button>
+      <el-button @click="changeMinWidth()" style="margin-left: 12px;" :disabled="minColumnWidth < 1">缩小</el-button>
       <!-- <el-button @click="changeMinWidth('--')" style="margin-left: 12px;"
-        :disabled="min_column_width < 10">缩小*2</el-button> -->
+        :disabled="minColumnWidth < 10">缩小*2</el-button> -->
       <slot name="headerCenter">
         {{ currentDate }}
       </slot>
@@ -93,6 +93,7 @@ const emit = defineEmits([
   "onLinkChange",
   'onLinkAdd',
   'onLinkDelete',
+  'move-change'
 ]);
 
 const minColumnWidth = ref(0)
@@ -478,7 +479,7 @@ const initGantt = () => {
   // dhtmlxgantt.ext.zoom.setLevel(props.dateLevel); //切换到指定的缩放级别
 
   dhtmlxgantt.config.grid_resize = true;
-  dhtmlxgantt.config.drag_move = false;
+  dhtmlxgantt.config.drag_move = true;
   dhtmlxgantt.config.resize_rows = true;
   // dhtmlxgantt.config.scale_height = 24;
   dhtmlxgantt.config.layout = {
@@ -590,8 +591,7 @@ const initGantt = () => {
   });
   // 拖动过程中
   dhtmlxgantt.attachEvent("onTaskDrag", function (id, mode, task, originData) {
-    //any custom logic here
-    // console.log("onTaskDrag", id, mode, dayjs(task.end_date).format("YYYY-MM-DD"));
+    currentDate.value = null //清除之前的值
     if (mode === 'resize') {
       const formatType = ['hour'].includes(dateType.value) ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'
       if (new Date(originData.end_date).getTime() !== new Date(task.end_date).getTime()) {
@@ -605,6 +605,9 @@ const initGantt = () => {
       }
     } else if (mode === 'progress') {
       currentDate.value = `${Math.round(task.progress * 100)}%`;
+    } else if (mode === 'move') {
+      const formatType = ['hour'].includes(dateType.value) ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD'
+      currentDate.value = `${dayjs(task.start_date).format(formatType)}~${dayjs(task.end_date).format(formatType)}`
     }
     return true;
   });
@@ -647,6 +650,7 @@ const initGantt = () => {
   //   return false; //阻止默认双击事件
   // });
   dhtmlxgantt.attachEvent("onAfterTaskAdd", function (id, item) {
+    console.log('onAfterTaskAdd', id, { ...item });
     const { duration, end_date, parent, progress, start_date, text } = item;
     emit('onTaskAdd', {
       duration,
@@ -712,6 +716,9 @@ const deleteLink = (id) => {
 }
 
 const reload = () => {
+  console.log('reload::::');
+  //destroying a gantt instance
+  // dhtmlxgantt?.destructor();
   const oldData = useCloned(ganttData.value || []).cloned.value;
   ganttData.value = useCloned(props.data || []).cloned.value;
   // 计算开始日期、结束日期
@@ -733,23 +740,6 @@ const reload = () => {
   // 更新开始日期、结束日期
   dhtmlxgantt.config.start_date = dayjs(dates.startDate).subtract(3, 'day').format('YYYY-MM-DD HH:mm:ss')
   dhtmlxgantt.config.end_date = dayjs(dates.endDate).add(3, 'day').format('YYYY-MM-DD HH:mm:ss')
-  // switch (dateType.value) {
-  //   case 'month':
-  //   case 'year':
-  //   case 'date':
-  //     // 更新开始日期、结束日期
-  //     dhtmlxgantt.config.start_date = dayjs(dates.startDate).subtract(3, 'day').format('YYYY-MM-DD HH:mm:ss')
-  //     dhtmlxgantt.config.end_date = dayjs(dates.endDate).add(3, 'day').format('YYYY-MM-DD HH:mm:ss')
-  //     break;
-  //   default:
-  //     // 更新开始日期、结束日期
-  //     dhtmlxgantt.config.start_date = dayjs(dates.startDate).subtract(3, 'h').format('YYYY-MM-DD HH:mm:ss')
-  //     dhtmlxgantt.config.end_date = dayjs(dates.endDate).add(3, 'h').format('YYYY-MM-DD HH:mm:ss')
-  //     break;
-  // }
-
-  // dhtmlxgantt.config.start_date = new Date(2018, 08, 10);
-  // dhtmlxgantt.config.end_date = new Date(2018, 08, 20);
   // 更新节点展开状态
   if (ganttData.value.length && oldData?.length) {
     ganttData.value.forEach(item => {
@@ -776,6 +766,15 @@ const reload = () => {
 
 const ganttData = ref([]);
 const links = ref([]);
+
+const updateGanttData = (data) => {
+  dhtmlxgantt.clearAll(); // 从甘特图中删除所有任务和其他元素（包括标记）
+  dhtmlxgantt.parse({
+    data: ganttData.value,
+    links: links.value,
+  })
+}
+
 watch(
   () => props.columns,
   (newVal) => {
@@ -790,7 +789,8 @@ watch(
 );
 watch(() => props.links, (newVal) => {
   links.value = newVal;
-  reload();
+  // reload();
+  // updateGanttData({ data: ganttData.value, links: newVal });
 })
 watch(
   () => props.data,
@@ -800,14 +800,14 @@ watch(
     } else {
       ganttData.value = [];
     }
-    reload();
+    updateGanttData({ data: newVal, links: links.value });
   },
   {
     deep: true,
   }
 );
 onMounted(() => {
-  // initGantt();
+  reload();
 });
 onUnmounted(() => {
   dhtmlxgantt.destructor();
