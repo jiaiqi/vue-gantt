@@ -20,28 +20,9 @@ const loginRef = ref(null)
 const page = reactive({ pageNo: 1, rownumber: 500, total: 0 });
 const originData = ref([]);
 const ganttData = ref([]);
+const oldGanttData = ref([]);
 const ganttColumns = ref([]);
-const config = reactive({
-  // srv_mapp: "oa",
-  // srv_select: "srvoa_project_wbs_select",
-  // srv_add: "srvoa_project_wbs_add",
-  // srv_update: "srvoa_project_wbs_update",
-  // srv_delete: "srvoa_project_wbs_delete",
-  // col_title: "wbs_name",
-  // col_start_time:'',
-  // col_end_time: "deadline",
-  // col_duration: "plan_workload", //预估时间
-  // col_duration_unit: "hour", //默认为天
-  // col_progress: "wbs_progress",
-  // col_status: "wbs_status",
-  // col_no: "wbs_no",
-  // col_parent_no: "parent_no",
-  // col_foldl:'open'
-  // col_no_pre: 'wbs_no_pre',
-  // col_no_next: 'wbs_no_next',
-  // day_to_hour
-  // month_to_day
-});
+let config = {}
 const iframeSrc = ref('https://www.baidu.com/')
 const route = useRoute();
 const ganttVue = ref(null);
@@ -72,6 +53,9 @@ const fetchData = async () => {
       data: paths,
     },
   };
+  if (config.col_seq) {
+    // req.order = [{ colName: config.col_seq, orderType: "asc" }]
+  }
   loading.value = true;
   const res = await $http.post(url, req);
   loading.value = false;
@@ -85,6 +69,8 @@ const fetchData = async () => {
   }
   originData.value = res.data.data;
   ganttData.value = initGanttData(res.data.data, config);
+  oldGanttData.value = JSON.parse(JSON.stringify(ganttData.value));
+
   if (config.col_no_next || config.col_no_pre) {
     links.value = buildLinks(res.data.data)
   }
@@ -185,16 +171,16 @@ const getGanttCfg = async () => {
         'table_cols',//左侧表格显示字段
         "day_to_hour",//每天几小时
         "month_to_day",//每月几天
+        'col_seq',//排序字段
       ];
-      keys.forEach((key) => {
-        if (res.data.data[0][key]) {
-          config[key] = res.data.data[0][key];
-        }
-      });
-      // config = reactive({
-      //   ...res.data.data[0],
-      //   ...config,
+      // keys.forEach((key) => {
+      //   if (res.data.data[0][key]) {
+      //     config[key] = res.data.data[0][key];
+      //   }
       // });
+      config = reactive({
+        ...res.data.data[0],
+      });
     }
   }
   return config;
@@ -218,6 +204,7 @@ const initGanttData = (data = [], config = {}) => {
       end_date: item[config.col_end_time],
       duration: item[config.col_duration],
       status: item[config.col_status],
+      leaf: item.is_leaf === '是'
     };
 
     // obj.id = item[config.col_no];
@@ -325,9 +312,9 @@ const initColumns = (config = {}) => {
       '名称': { name: "text", label: "标题", tree: true, editor: textEditor },
       '编号': { name: "id", label: "编号" },
       '预估时长': {
-        name: "duration", label: "预估时长", width: 65, align: 'center', template: (obj) => {
+        name: "duration", label: "周期(\h\)", width: 65, align: 'center', template: (obj) => {
           if (obj.duration) {
-            return `<span>${obj.duration}${config.col_duration_unit}</span>`
+            return `<span>${obj.duration}</span>`
           } else {
             return '-'
           }
@@ -365,7 +352,7 @@ const onTaskDblClick = (id) => {
 
 
 const dateChange = (newVal) => {
-  console.log("datechange", newVal);
+  // console.log("datechange", newVal);
   // const start = dayjs(newVal.start_date).format("YYYY-MM-DD")
   // const end = dayjs(newVal.end_date).format("YYYY-MM-DD")
   // ElMessageBox.confirm(
@@ -378,6 +365,16 @@ const dateChange = (newVal) => {
   //   }
   // )
   //   .then(() => {
+  const oldVal = ganttData.value.find((item) => item.id === newVal.id);
+  if (newVal.start_date === oldVal.start_date && newVal.end_date === oldVal.end_date) {
+    return
+  } else {
+    // const index = ganttData.value.findIndex((item) => item.id === newVal.id)
+    // ganttData.value[index].start_date = newVal.start_date
+    // ganttData.value[index].end_date = newVal.end_date
+    // ganttData.value[index].duration = newVal.duration
+    // console.log("datechange", newVal.start_date, newVal.end_date, oldVal.start_date, oldVal.end_date);
+  }
   operateData(newVal).then(res => {
     if (res) {
       ElMessage({
@@ -390,7 +387,7 @@ const dateChange = (newVal) => {
         message: "修改失败",
       });
     }
-    fetchData()
+    // fetchData()
   })
   // })
   // .catch(() => {
@@ -402,7 +399,14 @@ const dateChange = (newVal) => {
   // });
 };
 const progressChange = (newVal) => {
-  console.log("progressChange", newVal);
+  const oldVal = ganttData.value.find((item) => item.id === newVal.id);
+  if (newVal.progress === oldVal.progress * 100) {
+    return
+  } else {
+    const index = ganttData.value.findIndex((item) => item.id === newVal.id)
+    ganttData.value[index].progress = newVal.progress / 100
+    console.log("progressChange", newVal.progress, oldVal.progress);
+  }
   // ElMessageBox.confirm(`确定将进度修改为${newVal?.progress}%?`, "提示", {
   //   confirmButtonText: "确认",
   //   cancelButtonText: "取消",
@@ -421,7 +425,7 @@ const progressChange = (newVal) => {
         message: "修改失败",
       });
     }
-    fetchData()
+    // fetchData()
   })
   // })
   // .catch(() => {
@@ -433,7 +437,7 @@ const progressChange = (newVal) => {
   // });
 };
 const onTaskUpdate = (id, data,) => {
-  console.log("onTaskUpdate", id, data);
+  console.log('onTaskUpdate', id, data);
   operateData({ id, text: data.text }, 'update').then(res => {
     if (res) {
       ElMessage({
@@ -441,7 +445,7 @@ const onTaskUpdate = (id, data,) => {
         message: "修改成功",
       })
     }
-    fetchData()
+    // fetchData()
   })
 };
 const onTaskDelete = (id) => {
@@ -457,25 +461,25 @@ const onTaskDelete = (id) => {
   })
 }
 const onTaskAdd = (data) => {
-  console.log("onTaskAdd", data);
-  ElMessageBox.confirm(`确定添加任务${data.text}?`, "提示", {
-    confirmButtonText: "确认",
-    cancelButtonText: "取消",
-    type: "warning",
-  }).then(() => {
-    operateData(data, 'add').then(res => {
-      if (res) {
-        ElMessage({
-          type: "success",
-          message: "添加成功",
-        })
-      }
-      fetchData()
-    })
-  }).catch(() => {
-    ElMessage.info('取消操作')
-    ganttVue.value?.reload();
+  // console.log("onTaskAdd", data);
+  // ElMessageBox.confirm(`确定添加任务${data.text}?`, "提示", {
+  //   confirmButtonText: "确认",
+  //   cancelButtonText: "取消",
+  //   type: "warning",
+  // }).then(() => {
+  operateData(data, 'add').then(res => {
+    if (res) {
+      ElMessage({
+        type: "success",
+        message: "添加成功",
+      })
+    }
+    // fetchData()
   })
+  // }).catch(() => {
+  //   ElMessage.info('取消操作')
+  //   ganttVue.value?.reload();
+  // })
 }
 /**
  * 删除关联关系
@@ -506,7 +510,7 @@ const onLinkDelete = (data) => {
     } else {
       ElMessage.error('关联删除失败')
     }
-    fetchData()
+    // fetchData()
   })
 }
 /**
@@ -519,7 +523,8 @@ const onLinkAdd = (data, source, target) => {
   console.log('onLinkAdd', data, source, target);
   if (data.type !== '0') {
     ElMessage.error('只支持从一个节点结束连接到另一个节点的开始')
-    ganttVue.value?.reload();
+    // ganttVue.value?.reload();
+    ganttVue.value?.deleteLink(data.id)
     return
   }
   if (config.col_no_next) {
@@ -558,7 +563,7 @@ const onLinkAdd = (data, source, target) => {
             message: "操作失败",
           });
         }
-        fetchData()
+        // fetchData()
       })
     }
 
@@ -585,7 +590,7 @@ const operateData = async (data, type = 'update') => {
   }
   const url = `/${config.srv_mapp}/${type}/${config['srv_' + type]}`;
   const reqData = {}
-  if (data.progress) {
+  if (data.progress||data.progress===0) {
     reqData[config.col_progress] = data.progress
   }
   if (config.col_parent_no && data.parent && data.parent !== 0) {
