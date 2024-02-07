@@ -468,6 +468,7 @@ const onTaskUpdate = (id, data,) => {
     }
   })
 };
+
 const onTaskDelete = (id) => {
   ElMessageBox.confirm(`确定删除任务?`, "提示", {
     confirmButtonText: "确认",
