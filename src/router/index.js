@@ -1,28 +1,39 @@
-import { createRouter, createWebHistory,createWebHashHistory } from 'vue-router'
-import GanttMain from '../views/gantt.vue'
+import {
+  createRouter,
+  createWebHistory,
+  createWebHashHistory,
+} from "vue-router";
+import GanttMain from "../views/gantt.vue";
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/',
-      name: 'GanttMain',
-      component: GanttMain
+      path: "/",
+      name: "GanttMain",
+      component: GanttMain,
     },
     {
-      path: '/:cfgNo',
-      name: 'GanttMain1',
-      component: GanttMain
+      path: "/:cfgNo",
+      name: "GanttMain1",
+      component: GanttMain,
     },
     {
-      path: '/:cfgNo/:pIds',
-      name: 'GanttMain2',
-      component: GanttMain
+      path: "/:cfgNo/:pIds",
+      name: "GanttMain2",
+      component: GanttMain,
     },
     {
-      path: '/main/:cfgNo',
-      name: 'GanttMain3',
-      component: GanttMain
+      path: "/main/:cfgNo",
+      name: "GanttMain3",
+      component: GanttMain,
+    },
+    {
+      path: "/er",
+      component: () => import("../views/er.vue"),
+    }, {
+      path: "/ergraph",
+      component: () => import("../views/er-graph.vue"),
     },
     // {
     //   path: '/about',
@@ -32,7 +43,7 @@ const router = createRouter({
     //   // which is lazy-loaded when the route is visited.
     //   component: () => import('../views/AboutView.vue')
     // }
-  ]
-})
+  ],
+});
 
-export default router
+export default router;

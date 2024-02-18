@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@antv/layout": "^0.3.25",
+    "@antv/x6": "^2.18.1",
     "@vueuse/core": "^10.7.2",
     "axios": "^1.6.5",
     "dayjs": "^1.11.10",
@@ -16,6 +18,7 @@
     "element-plus": "^2.5.3",
     "lodash-es": "^4.17.21",
     "pinia": "^2.1.7",
+    "relation-graph": "^2.1.31",
     "vue": "^3.3.11",
     "vue-router": "^4.2.5"
   },
