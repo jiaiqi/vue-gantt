@@ -2,14 +2,13 @@
 import { ref, reactive, onMounted, watch } from "vue";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useRoute } from "vue-router";
-import { uniqBy, uniqueId } from 'lodash-es'
+import { uniqBy, uniqueId, debounce } from 'lodash-es'
 import { $http } from "../common/http";
 import { addTabByUrl } from "../common/utils/index";
 import dayjs from "dayjs";
 import GanttVue from "@/components/Gantt.vue";
 import loginDialog from "@/components/LoginDialog.vue";
 import { useBroadcastChannel } from '../common/utils/broadcastChannel'
-import { gantt } from "dhtmlx-gantt";
 
 defineOptions({
   inheritAttrs: false,
@@ -444,10 +443,11 @@ const progressChange = (newVal) => {
   //   });
   // });
 };
-const onMoveChange = (newVal) => {
-  console.log("onMoveChange", newVal);
-  const { start_date, end_date, id } = newVal
-  operateData({ start_date, end_date, id }, 'update').then(res => {
+// 存储任务队列 500毫秒后一起发送请求
+let taskQueue = []
+const _waitTime = 500
+const updateMove = debounce(() => {
+  operateData(taskQueue, 'update').then(res => {
     if (res) {
       ElMessage({
         type: "success",
@@ -455,6 +455,21 @@ const onMoveChange = (newVal) => {
       })
     }
   })
+  taskQueue = []
+}, _waitTime)
+const onMoveChange = (newVal) => {
+  console.log("onMoveChange", newVal);
+  const { start_date, end_date, id } = newVal
+  taskQueue.push({ start_date, end_date, id })
+  updateMove()
+  //   operateData({ start_date, end_date, id }, 'update').then(res => {
+  //   if (res) {
+  //     ElMessage({
+  //       type: "success",
+  //       message: "修改成功",
+  //     })
+  //   }
+  // })
 }
 
 const onTaskUpdate = (id, data,) => {
@@ -607,74 +622,153 @@ const operateData = async (data, type = 'update') => {
     return
   }
   const url = `/${config.srv_mapp}/${type}/${config['srv_' + type]}`;
-  const reqData = {}
-  if (data.progress || data.progress === 0) {
-    if (data.progress > 100) {
-      data.progress = 100
-    } else if (dateChange.progress > 0 && dateChange.progress < 1) {
-      data.progress *= 100
+  let reqDatas = data
+  if (!Array.isArray(data)) {
+    reqDatas = [data]
+  }
+  reqDatas = reqDatas.map(data => {
+    const reqData = { id: data.id }
+    if (data.progress || data.progress === 0) {
+      if (data.progress > 100) {
+        data.progress = 100
+      } else if (dateChange.progress > 0 && dateChange.progress < 1) {
+        data.progress *= 100
+      }
+      reqData[config.col_progress] = data.progress
     }
-    reqData[config.col_progress] = data.progress
-  }
-  if (config.col_parent_no && data.parent && data.parent !== 0) {
-    reqData[config.col_parent_no] = data.parent
-  }
-  if (config.col_no_next && data[config.col_no_next]) {
-    // next节点 数组JSON字符串
-    reqData[config.col_no_next] = data[config.col_no_next]
-  }
-  if (config.col_no_pre && data[config.col_no_pre]) {
-    // pre节点 数组JSON字符串
-    reqData[config.col_no_pre] = data[config.col_no_pre]
-  }
-  if (config.col_title && data.text) {
-    reqData[config.col_title] = data.text
-  }
-  if (config.col_start_time && data.start_date) {
-    reqData[config.col_start_time] = dayjs(data.start_date).format("YYYY-MM-DD HH:mm:ss")
-  }
-  if (config.col_end_time && data.end_date) {
-    reqData[config.col_end_time] = dayjs(data.end_date).format("YYYY-MM-DD HH:mm:ss")
-  }
-  const workHours = config['day_to_hour'] || 8 //默认一天八小时工作时长
-  if (config.col_duration && config.col_duration_unit && data.duration) {
-
-    switch (config.col_duration_unit) {
-      case '日':
-      case '天':
-        reqData[config.col_duration] = data.duration
-        break;
-      case '小时':
-      case '时':
-        // 日转为小时 一天8小时
-        reqData[config.col_duration] = data.duration * workHours
-        break;
+    if (config.col_parent_no && data.parent && data.parent !== 0) {
+      reqData[config.col_parent_no] = data.parent
     }
-  }
+    if (config.col_no_next && data[config.col_no_next]) {
+      // next节点 数组JSON字符串
+      reqData[config.col_no_next] = data[config.col_no_next]
+    }
+    if (config.col_no_pre && data[config.col_no_pre]) {
+      // pre节点 数组JSON字符串
+      reqData[config.col_no_pre] = data[config.col_no_pre]
+    }
+    if (config.col_title && data.text) {
+      reqData[config.col_title] = data.text
+    }
+    if (config.col_start_time && data.start_date) {
+      reqData[config.col_start_time] = dayjs(data.start_date).format("YYYY-MM-DD HH:mm:ss")
+    }
+    if (config.col_end_time && data.end_date) {
+      reqData[config.col_end_time] = dayjs(data.end_date).format("YYYY-MM-DD HH:mm:ss")
+    }
+    const workHours = config['day_to_hour'] || 8 //默认一天八小时工作时长
+    if (config.col_duration && config.col_duration_unit && data.duration) {
 
-  const req = [
-    {
+      switch (config.col_duration_unit) {
+        case '日':
+        case '天':
+          reqData[config.col_duration] = data.duration
+          break;
+        case '小时':
+        case '时':
+          // 日转为小时 一天8小时
+          reqData[config.col_duration] = data.duration * workHours
+          break;
+      }
+    }
+    return reqData
+  })
+  const req = reqDatas.map(reqData => {
+    const data = { ...reqData }
+    delete reqData.id
+
+    const obj = {
       serviceName: config[`srv_${type}`],
       condition: [],
       data: [reqData],
-    },
-  ];
-  if (type === 'update' || type === 'delete') {
-    if (data.id) {
-      const id = ganttData.value.find(item => item[config.col_no] === data.id)
-      if (id) {
-        req[0].condition.push({ colName: id, ruleType: "eq", value: id })
+    }
+    if (type === 'update' || type === 'delete') {
+      if (data.id) {
+        const id = ganttData.value.find(item => item[config.col_no] === data.id)
+        if (id) {
+          obj.condition.push({ colName: id, ruleType: "eq", value: id })
+        } else {
+          obj.condition.push({ colName: config.col_no, ruleType: "eq", value: data.id })
+        }
       } else {
-        req[0].condition.push({ colName: config.col_no, ruleType: "eq", value: data.id })
+        ElMessage.error('数据有误！no字段没有值')
+        return
       }
-    } else {
-      ElMessage.error('数据有误！no字段没有值')
-      return
+      if (type === 'delete') {
+        obj.data = []
+      }
     }
-    if (type === 'delete') {
-      req[0].data = []
-    }
-  }
+    return obj
+  })
+
+  // const reqData = {}
+  // if (data.progress || data.progress === 0) {
+  //   if (data.progress > 100) {
+  //     data.progress = 100
+  //   } else if (dateChange.progress > 0 && dateChange.progress < 1) {
+  //     data.progress *= 100
+  //   }
+  //   reqData[config.col_progress] = data.progress
+  // }
+  // if (config.col_parent_no && data.parent && data.parent !== 0) {
+  //   reqData[config.col_parent_no] = data.parent
+  // }
+  // if (config.col_no_next && data[config.col_no_next]) {
+  //   // next节点 数组JSON字符串
+  //   reqData[config.col_no_next] = data[config.col_no_next]
+  // }
+  // if (config.col_no_pre && data[config.col_no_pre]) {
+  //   // pre节点 数组JSON字符串
+  //   reqData[config.col_no_pre] = data[config.col_no_pre]
+  // }
+  // if (config.col_title && data.text) {
+  //   reqData[config.col_title] = data.text
+  // }
+  // if (config.col_start_time && data.start_date) {
+  //   reqData[config.col_start_time] = dayjs(data.start_date).format("YYYY-MM-DD HH:mm:ss")
+  // }
+  // if (config.col_end_time && data.end_date) {
+  //   reqData[config.col_end_time] = dayjs(data.end_date).format("YYYY-MM-DD HH:mm:ss")
+  // }
+  // const workHours = config['day_to_hour'] || 8 //默认一天八小时工作时长
+  // if (config.col_duration && config.col_duration_unit && data.duration) {
+
+  //   switch (config.col_duration_unit) {
+  //     case '日':
+  //     case '天':
+  //       reqData[config.col_duration] = data.duration
+  //       break;
+  //     case '小时':
+  //     case '时':
+  //       // 日转为小时 一天8小时
+  //       reqData[config.col_duration] = data.duration * workHours
+  //       break;
+  //   }
+  // }
+
+  // const req = [
+  //   {
+  //     serviceName: config[`srv_${type}`],
+  //     condition: [],
+  //     data: [reqData],
+  //   },
+  // ];
+  // if (type === 'update' || type === 'delete') {
+  //   if (data.id) {
+  //     const id = ganttData.value.find(item => item[config.col_no] === data.id)
+  //     if (id) {
+  //       req[0].condition.push({ colName: id, ruleType: "eq", value: id })
+  //     } else {
+  //       req[0].condition.push({ colName: config.col_no, ruleType: "eq", value: data.id })
+  //     }
+  //   } else {
+  //     ElMessage.error('数据有误！no字段没有值')
+  //     return
+  //   }
+  //   if (type === 'delete') {
+  //     req[0].data = []
+  //   }
+  // }
   const res = await $http.post(url, req);
   if (res?.data?.resultCode === '0011') {
     openLoginDialog()

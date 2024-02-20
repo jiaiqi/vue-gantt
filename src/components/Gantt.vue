@@ -93,6 +93,35 @@ const emit = defineEmits([
 ]);
 //注册甘特图事件监听
 const registerGanttEvent = (gantt, { ganttData, dateType }) => {
+  // gantt.attachEvent("onTaskDrag", function (id, mode, task, original) {
+  //   var modes = gantt.config.drag_mode;
+  //   if (mode == modes.move) {
+  //     var diff = task.start_date - original.start_date;
+  //     gantt.eachTask(function (child) {
+  //       child.start_date = new Date(+child.start_date + diff);
+  //       child.end_date = new Date(+child.end_date + diff);
+  //       gantt.refreshTask(child.id, true);
+  //     }, id);
+  //   }
+  // });
+  // //rounds positions of the child items to scale
+  // gantt.attachEvent("onAfterTaskDrag", function (id, mode, e) {
+  //   var modes = gantt.config.drag_mode;
+  //   if (mode == modes.move) {
+  //     var state = gantt.getState();
+  //     gantt.eachTask(function (child) {
+  //       child.start_date = gantt.roundDate({
+  //         date: child.start_date,
+  //         unit: state.scale_unit,
+  //         step: state.scale_step
+  //       });
+  //       child.end_date = gantt.calculateEndDate(child.start_date,
+  //         child.duration, gantt.config.duration_unit);
+  //       gantt.updateTask(child.id);
+  //     }, id);
+  //   }
+  // });
+
   gantt.attachEvent("onTaskClosed", (id, task) => {
     // ganttData.value.find((item) => item.id === id).open = false;
   });

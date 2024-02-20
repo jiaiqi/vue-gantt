@@ -30,7 +30,8 @@ export const setGanttConfig = (gantt, durationUnit) => {
   gantt.config.readonly = false; //是否只读
   gantt.config.start_on_monday = true; //是否从周一显示起始时间---右侧条形图
   gantt.config.grid_resize = true;
-  gantt.config.drag_move = true;
+  gantt.config.drag_move = true; //允许拖动
+  gantt.config.drag_project = true //允许拖动项目
   gantt.config.resize_rows = true;
   gantt.config.work_time = true;
   // gantt.config.skip_off_time = true; //从时间刻度上隐藏非工作时间 专业版可用
