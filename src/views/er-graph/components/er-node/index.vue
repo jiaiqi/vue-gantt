@@ -1,5 +1,5 @@
 <template>
-  <div class="er-entity">
+  <div class="er-entity" ref="erEntity">
     <div class="entity-header">
       <div class="btn" @click="changeCollapses">
         <el-icon>
@@ -47,6 +47,11 @@ export default defineComponent({
     },
   },
   methods: {
+    resizeNode() {
+      this.$nextTick(() => {
+        this.node?.resize?.(this.$refs.erEntity?.clientWidth, this.$refs.erEntity?.clientHeight)
+      })
+    },
     addPort() {
       const item = {
         id: new Date().getTime(),
@@ -73,13 +78,14 @@ export default defineComponent({
       })
       this.node = this.getNode()
       this.colsList = this.node.getData()?.colsList || []
-
+      this.resizeNode()
     },
     changeCollapses() {
       this.collapses = !this.collapses
       this.node.setData({
         collapses: this.collapses
       })
+      this.resizeNode()
     }
   },
   mounted() {
@@ -87,6 +93,7 @@ export default defineComponent({
     this.node = node
     this.colsList = node.getData()?.colsList || []
     console.log(node)
+    this.resizeNode()
   },
 })
 </script>

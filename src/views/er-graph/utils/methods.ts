@@ -213,6 +213,7 @@ export const startDragToGraph = (graph, type, e) => {
       ];
       node = graph.createNode({
         shape: "entity-node",
+        
         data: {
           title: "学生",
           colsList: list,

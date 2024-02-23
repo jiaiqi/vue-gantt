@@ -5,6 +5,7 @@ import { register, getTeleport } from '@antv/x6-vue-shape'
 import erEntityNode from './components/er-node/index.vue'
 // import { data } from './data'
 import { Transform } from '@antv/x6-plugin-transform'
+import { Selection } from '@antv/x6-plugin-selection'
 import { registerCustomGroupNode, addNodeCollapseListener } from './utils/x6util'
 import { startDragToGraph } from "./utils/methods";
 
@@ -93,18 +94,38 @@ const createGraph = () => {
       },
     }),
   )
+  graph.use(
+    new Selection({
+      enabled: true,
+      showNodeSelectionBox: true,
+      showEdgeSelectionBox: true,
+      pointerEvents: 'none',
+      // rubberband:true
+    }),
+  )
 
   // 注册节点展开收起监听事件
   addNodeCollapseListener(graph)
 
   graph.on('node:change:parent', ({ node }) => {
+    // 监听节点父级变化事件
     console.log('node:change:parent:', node);
   })
 
   graph.on('node:added', ({ node }) => {
-    if(node?.data?.zIndex!==undefined){
+    // 监听节点添加事件
+    if (node?.data?.zIndex !== undefined) {
       node.setZIndex(node.data.zIndex)
     }
+  })
+
+  graph.on('cell:selected', ({ cell }) => {
+    // 监听节点/边选中事件
+    console.log(cell,":::cell:selected")
+  })
+  graph.on('cell:unselected', ({ cell }) => {
+    // 监听节点/边取消选中事件
+    console.log(cell,":::cell:unselected")
   })
 
 
@@ -121,7 +142,7 @@ const createGraph = () => {
   graph.on('edge:connected', ({ edge, options }) => {
     // console.log(edge, options, 'edge:connected');
     console.log(graph.toJSON());
-    
+
   })
   graph.on('edge:mouseup', ({ edge, options }) => {
     // console.log(edge, options, 'edge:mouseup');
@@ -161,7 +182,7 @@ const registerNode = () => {
     ports: {
       groups: {
         list: {
-          zIndex:1,
+          zIndex: 1,
           markup: [
             {
               tagName: 'rect',
@@ -188,7 +209,7 @@ const registerNode = () => {
               stroke: 'transparent',
               fill: 'transparent',
               magnet: true,
-              zIndex:0,
+              zIndex: 0,
 
             },
             portNameLabel: {
@@ -197,7 +218,7 @@ const registerNode = () => {
               refY: 6,
               fontSize: 10,
               fill: 'transparent',
-              zIndex:0,
+              zIndex: 0,
               // magnet: true,
             },
             portTypeLabel: {
@@ -206,7 +227,7 @@ const registerNode = () => {
               refY: 6,
               fontSize: 10,
               fill: 'transparent',
-              zIndex:0,
+              zIndex: 0,
 
               // magnet: true,
             },
@@ -354,7 +375,7 @@ const startDrag = (type, e) => {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style  lang="scss">
 @import "@/assets/iconfont.css";
 
 .container_warp {
@@ -366,6 +387,14 @@ const startDrag = (type, e) => {
   .container {
     flex: 1;
   }
+
+  // .x6-widget-selection-box {
+  //   border: 2px dashed #239edd;
+  // }
+
+  // .x6-widget-selection-inner {
+  //   border: 1px solid #239edd;
+  // }
 
   // .right_drawer {
   //   height: 100%;
