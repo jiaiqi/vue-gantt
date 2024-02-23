@@ -2,19 +2,14 @@
 import { onMounted, ref } from 'vue'
 import { Graph, Cell, Shape, Node } from '@antv/x6';
 import { register, getTeleport } from '@antv/x6-vue-shape'
-// import erEntityNode from './components/er-node/index.vue'
-import { data } from './data'
+import erEntityNode from './components/er-node/index.vue'
+// import { data } from './data'
 import { Transform } from '@antv/x6-plugin-transform'
 import { registerCustomGroupNode, addNodeCollapseListener } from './utils/x6util'
 import { startDragToGraph } from "./utils/methods";
 
 import leftDrawer from './components/left-drawer/index.vue'
-// register({
-//   shape: 'entity-node',
-//   width: 100,
-//   height: 100,
-//   component: erEntityNode,
-// })
+
 const TeleportContainer = getTeleport()
 
 let container: HTMLElement | undefined;
@@ -26,14 +21,6 @@ onMounted(() => {
   registerNode()
   registerCustomGroupNode()
   getData()
-  // graph.addNode({
-  //   shape: 'entity-node',
-  //   x: 100,
-  //   y: 60,
-  //   data: {
-  //     title: 'aaa'
-  //   }
-  // })
 })
 
 // 加载数据创建画布
@@ -43,9 +30,6 @@ const getData = () => {
 
 // 创建画布
 const createGraph = () => {
-
-
-
   graph = new Graph({
     container: container,
     height: 1080,
@@ -113,44 +97,14 @@ const createGraph = () => {
   // 注册节点展开收起监听事件
   addNodeCollapseListener(graph)
 
-  // graph.fromJSON()
-
-  // const cells: Cell[] = []
-  // data.forEach((item: any) => {
-  //   if (item.shape === 'edge') {
-  //     cells.push(graph.createEdge({
-  //       ...item,
-  //       label: '111'
-  //     }))
-  //   } else {
-  //     const node = graph.createNode({ ...item })
-  //     if (item.shape === 'lane') {
-  //       node.setData({
-  //         parent: true
-  //       })
-  //     }
-  //     cells.push(node)
-  //   }
-  // })
-  // graph.resetCells(cells)
-  // initGroup()
-  // const { createGroup } = useGroup(graph)
-  // createGroup('分组1', 0, 0, 200, 300, null, '#5f95ff')
-
-  // graph.addNode({
-  //   shape: 'custom-vue-node',
-  //   x: 100,
-  //   y: 60,
-  // })
-
   graph.on('node:change:parent', ({ node }) => {
     console.log('node:change:parent:', node);
+  })
 
-    // node.attr({
-    //   label: {
-    //     text: 'Child\n(embed)',
-    //   },
-    // })
+  graph.on('node:added', ({ node }) => {
+    if(node?.data?.zIndex!==undefined){
+      node.setZIndex(node.data.zIndex)
+    }
   })
 
 
@@ -166,9 +120,14 @@ const createGraph = () => {
   // })
   graph.on('edge:connected', ({ edge, options }) => {
     // console.log(edge, options, 'edge:connected');
+    console.log(graph.toJSON());
+    
   })
   graph.on('edge:mouseup', ({ edge, options }) => {
     // console.log(edge, options, 'edge:mouseup');
+    if (edge?.target?.cell === edge?.id || edge?.target?.cell === edge?._parent?.id) {
+      edge.remove()
+    }
     if (!edge?.target?.cell) {
       edge.remove()
     }
@@ -177,9 +136,9 @@ const createGraph = () => {
 
 // 注册er图节点
 const registerNode = () => {
-
-  const LINE_HEIGHT = 24
-  const NODE_WIDTH = 150
+  const ratio = 2 / 3
+  const LINE_HEIGHT = 30
+  const NODE_WIDTH = 160
   Graph.registerPortLayout(
     'erPortPosition',
     (portsPositionArgs) => {
@@ -187,7 +146,7 @@ const registerNode = () => {
         return {
           position: {
             x: 0,
-            y: (index + 1) * LINE_HEIGHT,
+            y: (index + 1) * LINE_HEIGHT * ratio,
           },
           angle: 0,
         }
@@ -195,6 +154,68 @@ const registerNode = () => {
     },
     true,
   )
+
+  register({
+    shape: 'entity-node',
+    component: erEntityNode,
+    ports: {
+      groups: {
+        list: {
+          zIndex:1,
+          markup: [
+            {
+              tagName: 'rect',
+              selector: 'portBody',
+            },
+            {
+              tagName: 'text',
+              selector: 'portNameLabel',
+            },
+            {
+              tagName: 'line',
+              selector: 'line',
+            },
+            {
+              tagName: 'text',
+              selector: 'portTypeLabel',
+            },
+          ],
+          attrs: {
+            portBody: {
+              width: NODE_WIDTH * ratio,
+              height: LINE_HEIGHT * ratio,
+              strokeWidth: 1,
+              stroke: 'transparent',
+              fill: 'transparent',
+              magnet: true,
+              zIndex:0,
+
+            },
+            portNameLabel: {
+              ref: 'portBody',
+              refX: 6,
+              refY: 6,
+              fontSize: 10,
+              fill: 'transparent',
+              zIndex:0,
+              // magnet: true,
+            },
+            portTypeLabel: {
+              ref: 'portBody',
+              refX: 1,
+              refY: 6,
+              fontSize: 10,
+              fill: 'transparent',
+              zIndex:0,
+
+              // magnet: true,
+            },
+          },
+          position: 'erPortPosition',
+        },
+      },
+    },
+  })
 
   Graph.registerNode(
     'er-rect',

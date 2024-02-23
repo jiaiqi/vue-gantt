@@ -18,7 +18,6 @@ class Group extends Node {
   }
 
   toggleCollapse(collapsed?: boolean) {
-    debugger;
     const target = collapsed == null ? !this.collapsed : collapsed;
     if (target) {
       this.attr("buttonSign", { d: "M 1 5 9 5 M 5 1 5 9" });
@@ -104,7 +103,7 @@ Group.config({
 
 // 拖拽生成四边形或者圆形
 export const startDragToGraph = (graph, type, e) => {
-  const { createGroup } = useGroup(graph);
+  const { createGroup, createEntity } = useGroup(graph);
   let node = null;
   switch (type) {
     case "Rect":
@@ -187,72 +186,56 @@ export const startDragToGraph = (graph, type, e) => {
         null,
         "#5F95FF",
         uniqueId(type + "_"),
-        { resizable: true }
+        { resizable: true, zIndex: 0 }
       );
-      // node = graph.createTransformWidget(node);
+      node.setZIndex(0);
       break;
     case "ER":
-      node = graph.createNode({
-        id: uniqueId(type + "_"),
-        shape: "er-rect",
-        label: "学生",
-        width: 150,
-        height: 24,
-        position: {
-          x: 24,
-          y: 150,
+      const list = [
+        {
+          id: "1-1",
+          label: "姓名",
+          column: "name",
+          type: "string",
         },
-        ports: [
-          {
-            id: "1-1",
+        {
+          id: "1-2",
+          label: "年龄",
+          column: "age",
+          type: "int",
+        },
+        {
+          id: "1-3",
+          label: "性别",
+          column: "gender",
+          type: "enum",
+        },
+      ];
+      node = graph.createNode({
+        shape: "entity-node",
+        data: {
+          title: "学生",
+          colsList: list,
+        },
+        ports: list.map((item) => {
+          return {
+            id: item.id,
             group: "list",
+            data: {
+              ...item,
+            },
             attrs: {
               portNameLabel: {
-                text: "ID",
+                text: item.label,
               },
               portTypeLabel: {
-                text: "STRING",
+                text: item.type,
               },
             },
-          },
-          {
-            id: "1-2",
-            group: "list",
-            attrs: {
-              portNameLabel: {
-                text: "Name",
-              },
-              portTypeLabel: {
-                text: "STRING",
-              },
-            },
-          },
-          {
-            id: "1-3",
-            group: "list",
-            attrs: {
-              portNameLabel: {
-                text: "Class",
-              },
-              portTypeLabel: {
-                text: "NUMBER",
-              },
-            },
-          },
-          {
-            id: "1-4",
-            group: "list",
-            attrs: {
-              portNameLabel: {
-                text: "Gender",
-              },
-              portTypeLabel: {
-                text: "BOOLEAN",
-              },
-            },
-          },
-        ],
+          };
+        }),
       });
+
       break;
     default:
       node = graph.createNode({

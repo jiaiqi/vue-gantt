@@ -14,12 +14,18 @@ dependencies:
   '@antv/x6-plugin-dnd':
     specifier: ^2.1.1
     version: 2.1.1(@antv/x6@2.18.1)
+  '@antv/x6-plugin-selection':
+    specifier: ^2.2.2
+    version: 2.2.2(@antv/x6@2.18.1)
   '@antv/x6-plugin-transform':
     specifier: ^2.1.8
     version: 2.1.8(@antv/x6@2.18.1)
   '@antv/x6-vue-shape':
     specifier: ^2.1.2
     version: 2.1.2(@antv/x6@2.18.1)(vue@3.3.11)
+  '@element-plus/icons-vue':
+    specifier: ^2.3.1
+    version: 2.3.1(vue@3.3.11)
   '@vueuse/core':
     specifier: ^10.7.2
     version: 10.7.2(vue@3.3.11)
@@ -158,6 +164,14 @@ packages:
 
   /@antv/x6-plugin-dnd@2.1.1(@antv/x6@2.18.1):
     resolution: {integrity: sha512-v0szzik1RkadPDn4Qi5mOSaB2AeI78D40/YuCYbPVzplG+HydGsHwO3MLTgJPQ+R5n0eM0W5F850p1VfTOHR7g==}
+    peerDependencies:
+      '@antv/x6': ^2.x
+    dependencies:
+      '@antv/x6': 2.18.1
+    dev: false
+
+  /@antv/x6-plugin-selection@2.2.2(@antv/x6@2.18.1):
+    resolution: {integrity: sha512-s2gtR9Onlhr7HOHqyqg0d+4sG76JCcQEbvrZZ64XmSChlvieIPlC3YtH4dg1KMNhYIuBmBmpSum6S0eVTEiPQw==}
     peerDependencies:
       '@antv/x6': ^2.x
     dependencies:

@@ -29,10 +29,6 @@ const router = createRouter({
       component: GanttMain,
     },
     {
-      path: "/er",
-      component: () => import("../views/er.vue"),
-    },
-    {
       path: "/ergraph",
       component: () => import("../views/er-graph/index.vue"),
     },
