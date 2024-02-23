@@ -31,12 +31,54 @@ export const setGanttConfig = (gantt, durationUnit) => {
   gantt.config.start_on_monday = true; //是否从周一显示起始时间---右侧条形图
   gantt.config.grid_resize = true;
   gantt.config.drag_move = true; //允许拖动
-  gantt.config.drag_project = true //允许拖动项目
+  gantt.config.drag_project = true; //允许拖动项目
   gantt.config.resize_rows = true;
   gantt.config.work_time = true;
-  // gantt.config.skip_off_time = true; //从时间刻度上隐藏非工作时间 专业版可用
-  // gantt.setWorkTime({ days:[1,1,1,1,1,0,0] });
+  gantt.config.skip_off_time = true; //从时间刻度上隐藏非工作时间 专业版可用
+  gantt.setWorkTime({ days: [1, 1, 1, 1, 1, 0, 0] });
   gantt.setWorkTime({ hours: ["9:00-12:00", "14:00-19:00"] });
+  const calendarId = gantt.addCalendar(gantt.getCalendar("global"));
+  const calendar = gantt.getCalendar(calendarId);
+
+  gantt.templates.scale_cell_class = function (date) {
+    var css = [];
+    // 工作时间九点到十九点
+    if (date.getHours() == 9) {
+      css.push("day_start");
+    }
+    if (date.getHours() == 19) {
+      css.push("day_end");
+    }
+    if (date.getDay() == 0 || date.getDay() == 6) {
+      css.push("week_end");
+    } else if (!gantt.isWorkTime(date, "hour")) {
+      // css.push("no_work_hour");
+    }
+
+    return css.join(" ");
+  };
+  gantt.templates.timeline_cell_class = function (task, date) {
+    var css = [];
+    // 工作时间九点到十九点
+    if (date.getHours() < 9 && date.getHours() > 19) {
+      css.push("no_work_hour");
+    }
+    // if (date.getHours() == 9) {
+    //   css.push("day_start");
+    // }
+    // if (date.getHours() == 19) {
+    //   css.push("day_end");
+    // }
+    if (!gantt.isWorkTime(date, "day")) {
+      // 非工作日
+      css.push("week_end");
+    } else if (!gantt.isWorkTime(date, "hour")) {
+      // css.push("no_work_hour");
+    }
+
+    return css.join(" ");
+  };
+
   return gantt;
 };
 
@@ -151,8 +193,32 @@ export const buildZoomConfig = (gantt, minColumnWidth) => {
               }
             },
           },
-          { unit: "hour", step: 1, format: "%G点" },
-          { unit: "minute", step: 10, format: "%i" },
+          {
+            unit: "hour",
+            step: 1,
+            format: "%G点",
+            css: function (date) {
+              if (date.getDay() == 0 || date.getDay() == 6) {
+                return "day-item weekend weekend-border-bottom";
+              } else if (date.getHours() < 9 || date.getHours() >= 19) {
+                return "hour-item no-work-hour";
+              } else {
+                return "hour-item";
+              }
+            },
+          },
+          {
+            unit: "minute",
+            step: 10,
+            format: "%i",
+            css: function (date) {
+              if (date.getHours() < 9 || date.getHours() >= 19) {
+                return "minute-item no-work-hour";
+              } else {
+                return "minute-item";
+              }
+            },
+          },
         ],
       },
       {
@@ -187,7 +253,20 @@ export const buildZoomConfig = (gantt, minColumnWidth) => {
               }
             },
           },
-          { unit: "hour", step: 1, format: "%G" },
+          {
+            unit: "hour",
+            step: 1,
+            format: "%G",
+            css: function (date) {
+              if (date.getDay() == 0 || date.getDay() == 6) {
+                return "day-item weekend weekend-border-bottom";
+              } else if (date.getHours() < 9 || date.getHours() >= 19) {
+                return "hour-item no-work-hour";
+              } else {
+                return "hour-item";
+              }
+            },
+          },
         ],
       },
       {
@@ -269,10 +348,14 @@ export const buildZoomConfig = (gantt, minColumnWidth) => {
           {
             unit: "day",
             step: 1,
-            format: "%j",
-            element: (el) => {
-              debugger;
+            // format: "%j",
+            format: (date) => {
+              // if(date.getDay() == 0 || date.getDay() == 6){
+              //   return '周末'
+              // }
+              return date.getDate()
             },
+            element: (el) => {},
             css: function (date) {
               if (date.getDay() == 0 || date.getDay() == 6) {
                 return "day-item weekend weekend-border-bottom";

@@ -3,7 +3,7 @@ import {
   createWebHistory,
   createWebHashHistory,
 } from "vue-router";
-import GanttMain from "../views/gantt.vue";
+import GanttMain from "../views/gantt/index.vue";
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -31,9 +31,10 @@ const router = createRouter({
     {
       path: "/er",
       component: () => import("../views/er.vue"),
-    }, {
+    },
+    {
       path: "/ergraph",
-      component: () => import("../views/er-graph.vue"),
+      component: () => import("../views/er-graph/index.vue"),
     },
     // {
     //   path: '/about',

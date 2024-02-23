@@ -249,11 +249,19 @@ const initGanttData = (data = [], config = {}) => {
         // 单位为天
         obj.end_date = dayjs().add(item[config.col_duration], "day").format("YYYY-MM-DD");
       }
+    }else if(!obj.start_date&&obj.end_date&&!item[config.col_duration]){
+      // 只有结束时间 没有开始时间和时长 计算开始时间和时长
+      obj.start_date = dayjs(obj.end_date).subtract(7, "day").format("YYYY-MM-DD");
+      obj.duration = 7;
+    }else if(obj.start_date&&!obj.end_date&&!item[config.col_duration]){
+      // 只有开始时间 没有结束时间和时长 计算结束时间和时长
+      obj.end_date = dayjs(obj.start_date).add(7, "day").format("YYYY-MM-DD");
+      obj.duration = 7;
     } else if (!obj.start_date && !obj.end_date && !item[config.col_duration]) {
       // 没有开始时间和结束时间 没有时长 默认当天为开始时间 时长为1天(8h) 计算结束时间
       obj.start_date = dayjs().format("YYYY-MM-DD");
-      obj.duration = 1;
-      obj.end_date = dayjs().add(1, "day").format("YYYY-MM-DD");
+      obj.duration = 7;
+      obj.end_date = dayjs().add(7, "day").format("YYYY-MM-DD");
     }
     // obj.status = item[config.col_status];
     return {
@@ -323,7 +331,7 @@ const initColumns = (config = {}) => {
       '预估时长': {
         name: "duration", label: "周期(\h\)", width: 65, align: 'center', template: (obj) => {
           if (obj.duration) {
-            return `<span>${obj.duration}</span>`
+            return `<span>${obj.duration*8}</span>`
           } else {
             return '-'
           }

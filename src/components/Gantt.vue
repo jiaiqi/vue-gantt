@@ -482,12 +482,42 @@ defineExpose({
 
 <style lang="scss">
 .gantt-main {
+  --no-work-time-bg: #fdf7f4;
+  --no-work-time-selecter-bg: #fdf7f4;
+  // --no-work-time-selecter-bg: #F8EC9C;
   width: 100%;
   height: 100%;
   overflow: auto;
 
   :deep(.gantt_scale_cell.weekend) {
     color: #d43900;
+  }
+
+  .gantt_task_cell.day_end,
+  .gantt_task_cell.no_work_hour.day_start {
+    border-right-color: #C7DFFF;
+  }
+
+  .gantt_task_cell.week_end.day_end,
+  .gantt_task_cell.week_end.day_start {
+    border-right-color: #E2E1E1;
+  }
+
+  .gantt_task_cell.week_end,
+  .gantt_task_cell.no_work_hour,
+  .gantt_scale_cell.no-work-hour,
+  .gantt_scale_cell.weekend {
+    background-color: var(--no-work-time-bg);
+  }
+
+  .gantt_task_cell.week_end,
+  .gantt_task_cell.no_work_hour {
+    color: transparent;
+  }
+
+  // 选中状态
+  .gantt_task_row.gantt_selected .gantt_task_cell.week_end {
+    background-color: var(--no-work-time-selecter-bg);
   }
 }
 
