@@ -24,6 +24,9 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({
+  name: "LeftDrawer"
+})
 const emit = defineEmits(["start-drag"]);
 
 const startDrag = (type: string, event: Event) => {

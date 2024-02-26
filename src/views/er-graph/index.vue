@@ -36,7 +36,17 @@ const createGraph = () => {
     height: 1080,
     background: { color: '#fff' },  // 创建画布时初始化背景相关配置对象
     grid: { size: 10, visible: true, type: 'mesh' }, //创建画布时，通过配置对象来设置背景网格
-
+    // highlighting: {
+    //   magnetAdsorbed: {
+    //     name: 'stroke',
+    //     args: {
+    //       attrs: {
+    //         fill: '#5F95FF',
+    //         stroke: '#5F95FF',
+    //       },
+    //     },
+    //   },
+    // },
     connecting: {
       router: {
         name: 'er',
@@ -98,8 +108,9 @@ const createGraph = () => {
     new Selection({
       enabled: true,
       showNodeSelectionBox: true,
-      showEdgeSelectionBox: true,
+      showEdgeSelectionBox: false,
       pointerEvents: 'none',
+      className: 'on-selection'
       // rubberband:true
     }),
   )
@@ -121,29 +132,19 @@ const createGraph = () => {
 
   graph.on('cell:selected', ({ cell }) => {
     // 监听节点/边选中事件
-    console.log(cell,":::cell:selected")
+    console.log(cell, ":::cell:selected")
   })
   graph.on('cell:unselected', ({ cell }) => {
     // 监听节点/边取消选中事件
-    console.log(cell,":::cell:unselected")
+    console.log(cell, ":::cell:unselected")
   })
 
-
-  graph.zoomToFit({ padding: 10, maxScale: 1 })
-  graph.drawBackground({ color: '#fff' })  // 创建画布后也可调用方法重绘背景
-  graph.drawGrid({ type: 'mesh' })            // 创建画布后也可调用方法重绘画布网格
-  graph.zoom(0.5)                             // 画布和图形整体的缩放
-  graph.translate(200, 40)                    // 图形相对画布的相对位置，平移
-  graph.centerContent()                       // 将画布内容中心与视口中心对齐
-
-  // graph.on('edge:changed', ({ edge, index, options }) => {
-
-  // })
   graph.on('edge:connected', ({ edge, options }) => {
     // console.log(edge, options, 'edge:connected');
     console.log(graph.toJSON());
 
   })
+
   graph.on('edge:mouseup', ({ edge, options }) => {
     // console.log(edge, options, 'edge:mouseup');
     if (edge?.target?.cell === edge?.id || edge?.target?.cell === edge?._parent?.id) {
@@ -153,6 +154,13 @@ const createGraph = () => {
       edge.remove()
     }
   })
+
+  graph.zoomToFit({ padding: 10, maxScale: 1 })
+  graph.drawBackground({ color: '#fff' })  // 创建画布后也可调用方法重绘背景
+  graph.drawGrid({ type: 'mesh' })            // 创建画布后也可调用方法重绘画布网格
+  graph.zoom(0.5)                             // 画布和图形整体的缩放
+  graph.translate(200, 40)                    // 图形相对画布的相对位置，平移
+  graph.centerContent()                       // 将画布内容中心与视口中心对齐
 }
 
 // 注册er图节点
@@ -163,6 +171,7 @@ const registerNode = () => {
   Graph.registerPortLayout(
     'erPortPosition',
     (portsPositionArgs) => {
+      debugger
       return portsPositionArgs.map((_, index) => {
         return {
           position: {
@@ -181,6 +190,22 @@ const registerNode = () => {
     component: erEntityNode,
     ports: {
       groups: {
+        right: {
+          position:'right',
+          // position: {
+          //   name: 'absolute',
+          //   args: { x: '100%', y: ratio * LINE_HEIGHT * 0.5 },
+          // },
+          attrs: {
+            circle: {
+              magnet: true,
+              r: 4,
+              stroke: '#3199FF',
+              fill: '#fff',
+              strokeWidth: 1,
+            },
+          }
+        },
         list: {
           zIndex: 1,
           markup: [
@@ -226,9 +251,9 @@ const registerNode = () => {
               refX: 1,
               refY: 6,
               fontSize: 10,
-              fill: 'transparent',
+              // fill: 'transparent',
               zIndex: 0,
-
+              r: 5
               // magnet: true,
             },
           },
@@ -378,6 +403,8 @@ const startDrag = (type, e) => {
 <style  lang="scss">
 @import "@/assets/iconfont.css";
 
+
+
 .container_warp {
   position: relative;
   width: 100vw;
@@ -386,6 +413,11 @@ const startDrag = (type, e) => {
 
   .container {
     flex: 1;
+  }
+
+  .x6-edge-selected path:nth-child(2) {
+    stroke: #239edd;
+    stroke-width: 1.5px;
   }
 
   // .x6-widget-selection-box {

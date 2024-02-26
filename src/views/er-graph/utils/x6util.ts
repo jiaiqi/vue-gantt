@@ -107,6 +107,44 @@ Group.config({
       fontSize: 12,
     },
   },
+  ports: {
+    groups: {
+      portRight: {
+        position: { name: "right" },
+        attrs: {
+          circle: {
+            r: 4,
+            magnet: true,
+            stroke: "#5f95ff",
+            fill: "#fff",
+            x: -6,
+            y: -6,
+            strokeWidth: 1,
+          },
+        },
+      },
+      portLeft: {
+        // position: { name: 'right' },
+        attrs: {
+          circle: {
+            r: 4,
+            magnet: true,
+            stroke: "#5f95ff",
+            fill: "#fff",
+            x: -6,
+            y: -6,
+            strokeWidth: 1,
+          },
+        },
+      },
+    },
+    items: [
+      { id: "port1", group: "portLeft" },
+      { id: "port2", group: "portRight" },
+      // { id: "port3", group: "portLeft" },
+      // { id: "port4", group: "portLeft" },
+    ],
+  },
 });
 export { Group };
 
@@ -218,6 +256,16 @@ Entity.config({
   },
   ports: {
     groups: {
+      right: {
+        position: 'right',
+        attrs: {
+          circle: {
+            magnet: true,
+            stroke: "#8f8f8f",
+            r: 5,
+          },
+        },
+      },
       list: {
         markup: [
           {
@@ -243,7 +291,7 @@ Entity.config({
             height: LINE_HEIGHT,
             strokeWidth: 1,
             fill: "transparent",
-            // stroke: '#5F95FF',
+            stroke: "#5F95FF",
             // fill: '#EFF4FF',
           },
           portNameLabel: {
@@ -261,7 +309,8 @@ Entity.config({
             refY: 6,
             fontSize: 10,
             fill: "transparent",
-            // fill: '#EFF4FF',
+            // fill: '#5F95FF',
+            // r:5,
             magnet: true,
           },
         },
@@ -354,7 +403,7 @@ export const useGroup = (graph) => {
   ) => {
     const { resizable, others, zIndex } = params || {};
     const group = new Group({
-      shape:'container',
+      shape: "container",
       id,
       width,
       height,

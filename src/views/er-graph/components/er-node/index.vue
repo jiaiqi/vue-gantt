@@ -69,10 +69,10 @@ export default defineComponent({
         },
         attrs: {
           portNameLabel: {
-            text: item.label,
+            // text: item.label,
           },
           portTypeLabel: {
-            text: item.type,
+            // text: item.type,
           },
         },
       })

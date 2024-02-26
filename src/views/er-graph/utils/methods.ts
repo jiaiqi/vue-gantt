@@ -213,28 +213,33 @@ export const startDragToGraph = (graph, type, e) => {
       ];
       node = graph.createNode({
         shape: "entity-node",
-        
         data: {
           title: "学生",
           colsList: list,
         },
-        ports: list.map((item) => {
-          return {
-            id: item.id,
-            group: "list",
-            data: {
-              ...item,
-            },
-            attrs: {
-              portNameLabel: {
-                text: item.label,
+        ports: [
+          ...list.map((item) => {
+            return {
+              id: item.id,
+              group: "list",
+              data: {
+                ...item,
               },
-              portTypeLabel: {
-                text: item.type,
+              attrs: {
+                portNameLabel: {
+                  // text: item.label,
+                },
+                portTypeLabel: {
+                  // text: item.type,
+                },
               },
-            },
-          };
-        }),
+            };
+          }),
+          {
+            id: uniqueId("entityPort"),
+            group: "right",
+          },
+        ],
       });
 
       break;
