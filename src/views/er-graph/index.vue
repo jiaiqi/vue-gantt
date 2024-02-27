@@ -10,6 +10,7 @@ import { registerCustomGroupNode, addNodeCollapseListener } from './utils/x6util
 import { startDragToGraph } from "./utils/methods";
 
 import leftDrawer from './components/left-drawer/index.vue'
+import rightDrawer from './components/right-drawer/index.vue'
 
 const TeleportContainer = getTeleport()
 
@@ -29,6 +30,9 @@ const getData = () => {
   createGraph()
 }
 
+const selectedCell = ref(null)
+
+
 // 创建画布
 const createGraph = () => {
   graph = new Graph({
@@ -36,17 +40,6 @@ const createGraph = () => {
     height: 1080,
     background: { color: '#fff' },  // 创建画布时初始化背景相关配置对象
     grid: { size: 10, visible: true, type: 'mesh' }, //创建画布时，通过配置对象来设置背景网格
-    // highlighting: {
-    //   magnetAdsorbed: {
-    //     name: 'stroke',
-    //     args: {
-    //       attrs: {
-    //         fill: '#5F95FF',
-    //         stroke: '#5F95FF',
-    //       },
-    //     },
-    //   },
-    // },
     connecting: {
       router: {
         name: 'er',
@@ -60,7 +53,7 @@ const createGraph = () => {
           attrs: {
             line: {
               stroke: '#A2B1C3',
-              strokeWidth: 2,
+              strokeWidth: 1,
             },
           },
         })
@@ -133,10 +126,18 @@ const createGraph = () => {
   graph.on('cell:selected', ({ cell }) => {
     // 监听节点/边选中事件
     console.log(cell, ":::cell:selected")
+    selectedCell.value = cell
+    cell.setData({
+      selected: true
+    })
   })
   graph.on('cell:unselected', ({ cell }) => {
     // 监听节点/边取消选中事件
     console.log(cell, ":::cell:unselected")
+    selectedCell.value = null
+    cell.setData({
+      selected: false
+    })
   })
 
   graph.on('edge:connected', ({ edge, options }) => {
@@ -155,6 +156,23 @@ const createGraph = () => {
     }
   })
 
+  function showPorts(ports, show) {
+    for (let i = 0, len = ports.length; i < len; i = i + 1) {
+      ports[i].style.opacity = show ? '1' : '0'
+      // ports[i].style.visibility = show ? 'visible' : 'hidden'
+    }
+  }
+
+  graph.on('node:mouseenter', ({ node }) => {
+    const ports = container.querySelectorAll(`.x6-node[data-cell-id="${node.id}"] .x6-port-body`)
+    showPorts(ports, true)
+  })
+
+  graph.on('node:mouseleave', ({ node }) => {
+    const ports = container.querySelectorAll(`.x6-node[data-cell-id="${node.id}"] .x6-port-body`)
+    showPorts(ports, false)
+  })
+
   graph.zoomToFit({ padding: 10, maxScale: 1 })
   graph.drawBackground({ color: '#fff' })  // 创建画布后也可调用方法重绘背景
   graph.drawGrid({ type: 'mesh' })            // 创建画布后也可调用方法重绘画布网格
@@ -170,14 +188,16 @@ const registerNode = () => {
   const NODE_WIDTH = 160
   Graph.registerPortLayout(
     'erPortPosition',
-    (portsPositionArgs) => {
-      debugger
+    (portsPositionArgs, elemBBox) => {
+      console.log(elemBBox, portsPositionArgs);
       return portsPositionArgs.map((_, index) => {
+
         return {
           position: {
             x: 0,
-            y: (index + 1) * LINE_HEIGHT * ratio,
+            y: elemBBox.height < LINE_HEIGHT ? 0 : (index + 1) * LINE_HEIGHT * ratio,
           },
+          zIndex: 1,
           angle: 0,
         }
       })
@@ -188,18 +208,19 @@ const registerNode = () => {
   register({
     shape: 'entity-node',
     component: erEntityNode,
+    zIndex:2,
     ports: {
       groups: {
         right: {
-          position:'right',
-          // position: {
-          //   name: 'absolute',
-          //   args: { x: '100%', y: ratio * LINE_HEIGHT * 0.5 },
-          // },
+          // position: 'top',
+          position: {
+            name: 'absolute',
+            args: { x: '100%', y: ratio * LINE_HEIGHT * 0.5 },
+          },
           attrs: {
             circle: {
               magnet: true,
-              r: 4,
+              r: 5,
               stroke: '#3199FF',
               fill: '#fff',
               strokeWidth: 1,
@@ -212,49 +233,55 @@ const registerNode = () => {
             {
               tagName: 'rect',
               selector: 'portBody',
+              className:'port-body'
             },
             {
-              tagName: 'text',
+              tagName: 'circle',
               selector: 'portNameLabel',
+              className:'port-name-label'
             },
+            // {
+            //   tagName: 'line',
+            //   selector: 'line',
+            // },
             {
-              tagName: 'line',
-              selector: 'line',
-            },
-            {
-              tagName: 'text',
+              tagName: 'circle',
               selector: 'portTypeLabel',
+
             },
           ],
           attrs: {
             portBody: {
               width: NODE_WIDTH * ratio,
               height: LINE_HEIGHT * ratio,
+              // height: LINE_HEIGHT * ratio,
               strokeWidth: 1,
-              stroke: 'transparent',
+              // stroke: 'transparent',
               fill: 'transparent',
-              magnet: true,
+              // magnet: true,
               zIndex: 0,
-
             },
             portNameLabel: {
               ref: 'portBody',
-              refX: 6,
-              refY: 6,
+              refX: 0,
+              refY: LINE_HEIGHT * ratio / 2,
               fontSize: 10,
-              fill: 'transparent',
-              zIndex: 0,
-              // magnet: true,
+              stroke: '#3199FF',
+              fill: '#fff',
+              magnet: true,
+              zIndex: 2,
+              r: 5
             },
             portTypeLabel: {
               ref: 'portBody',
-              refX: 1,
-              refY: 6,
+              refX: '100%',
+              refY: LINE_HEIGHT * ratio / 2,
               fontSize: 10,
-              // fill: 'transparent',
-              zIndex: 0,
-              r: 5
-              // magnet: true,
+              stroke: '#3199FF',
+              fill: '#fff',
+              zIndex: 2,
+              r: 5,
+              magnet: true,
             },
           },
           position: 'erPortPosition',
@@ -396,6 +423,7 @@ const startDrag = (type, e) => {
   <div class="container_warp">
     <left-drawer @start-drag="startDrag"></left-drawer>
     <div id="container" class="container"></div>
+    <right-drawer :currentCell="selectedCell"></right-drawer>
     <TeleportContainer />
   </div>
 </template>
@@ -414,7 +442,9 @@ const startDrag = (type, e) => {
   .container {
     flex: 1;
   }
-
+  .x6-node-selected .port-body{
+    display: none;
+  }
   .x6-edge-selected path:nth-child(2) {
     stroke: #239edd;
     stroke-width: 1.5px;

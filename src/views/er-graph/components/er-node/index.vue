@@ -7,7 +7,8 @@
           <Minus v-else />
         </el-icon>
       </div>
-      <span>{{ nodeTitle }}</span>
+      <span :contenteditable="selected ? 'plaintext-only' : 'false'" style="flex: 1;" @input="onTitleChange">{{ nodeTitle
+      }}</span>
       <div class="btn-light" @click="addPort">
         <el-icon>
           <Plus />
@@ -15,9 +16,10 @@
       </div>
     </div>
     <div class="entity-container" :class="{ collapses }">
-      <div class="entity-container-item" v-for="item in colsList">
-        <div class="text" contenteditable="true">{{ item.label }}</div>
-        <div class="text" contenteditable="true">{{ item.type }}</div>
+      <div class="entity-container-item" v-for="item in colsList" :contenteditable="selected ? 'plaintext-only' : 'false'"
+        @input="onColumnChange($event, item)">
+        <div class="text">{{ item.label }}</div>
+        <div class="text">{{ item.type }}</div>
       </div>
     </div>
   </div>
@@ -34,11 +36,15 @@ export default defineComponent({
   components: {
     Plus, Minus
   },
+  props: {
+    onSelected: Boolean
+  },
   data() {
     return {
       node: null,
       collapses: false,
-      colsList: []
+      colsList: [],
+      selected: false
     }
   },
   computed: {
@@ -47,6 +53,12 @@ export default defineComponent({
     },
   },
   methods: {
+    onTitleChange(e) {
+      console.log(e?.target?.innerText, '\nonTitleChange');
+    },
+    onColumnChange(e, col) {
+      console.log(e?.target?.innerText?.split('\n'), '\onColumnChange', col);
+    },
     resizeNode() {
       this.$nextTick(() => {
         this.node?.resize?.(this.$refs.erEntity?.clientWidth, this.$refs.erEntity?.clientHeight)
@@ -94,6 +106,10 @@ export default defineComponent({
     this.colsList = node.getData()?.colsList || []
     console.log(node)
     this.resizeNode()
+    node.on('change:data', ({ current }) => {
+      // 监听选中/取消选中
+      this.selected = current?.selected
+    })
   },
 })
 </script>
