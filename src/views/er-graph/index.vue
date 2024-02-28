@@ -1,79 +1,113 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { Graph, Cell, Shape, Node } from '@antv/x6';
-import { register, getTeleport } from '@antv/x6-vue-shape'
-import erEntityNode from './components/er-node/index.vue'
+import { onMounted, ref } from "vue";
+import { Graph, Cell, Shape, Node } from "@antv/x6";
+import { register, getTeleport } from "@antv/x6-vue-shape";
+import erEntityNode from "./components/er-node/index.vue";
 // import { data } from './data'
-import { Transform } from '@antv/x6-plugin-transform'
-import { Selection } from '@antv/x6-plugin-selection'
-import { registerCustomGroupNode, addNodeCollapseListener } from './utils/x6util'
+import { Transform } from "@antv/x6-plugin-transform";
+import { Selection } from "@antv/x6-plugin-selection";
+import {
+  registerCustomGroupNode,
+  addNodeCollapseListener,
+} from "./utils/x6util";
 import { startDragToGraph } from "./utils/methods";
+import { $http } from "@/common/http";
+import { useRoute } from "vue-router";
+// 注册组件
+import leftDrawer from "./components/left-drawer/index.vue";
+import rightDrawer from "./components/right-drawer/index.vue";
 
-import leftDrawer from './components/left-drawer/index.vue'
-import rightDrawer from './components/right-drawer/index.vue'
+const route = useRoute();
 
-const TeleportContainer = getTeleport()
+const TeleportContainer = getTeleport();
 
 let container: HTMLElement | undefined;
 let graph;
 
 // 挂载完成后
 onMounted(() => {
-  container = document.getElementById('container') as HTMLElement | undefined
-  registerNode()
-  registerCustomGroupNode()
-  getData()
-})
+  container = document.getElementById("container") as HTMLElement | undefined;
+  registerNode();
+  registerCustomGroupNode();
+  if (cfgNo?.value) {
+    getErCfg(cfgNo?.value);
+  }
+  // getData();
+  // 创建画布
+  createGraph()
+});
+
+const cfgNo = ref(route?.params?.cfgNo);
+const erConfig = ref(null);
+const getErCfg = async (er_no) => {
+  // 查询甘特图配置
+  const req = {
+    serviceName: "srvtools_er_model_cfg_select",
+    colNames: ["*"],
+    condition: [{
+      colName: 'er_no',
+      ruleType: 'eq',
+      value: er_no
+    }],
+    page: { pageNo: 1, rownumber: 1 },
+  };
+  const url = `/config/select/srvtools_er_model_cfg_select`
+  const res = await $http.post(url, req);
+  if (Array.isArray(res.data.data) && res.data.data.length > 0) {
+    const data = res.data.data[0]
+    erConfig.value = data;
+    return data
+  }
+};
 
 // 加载数据创建画布
 const getData = () => {
-  createGraph()
-}
+  createGraph();
+};
 
-const selectedCell = ref(null)
-
+const selectedCell = ref(null);
 
 // 创建画布
 const createGraph = () => {
   graph = new Graph({
     container: container,
     height: 1080,
-    background: { color: '#fff' },  // 创建画布时初始化背景相关配置对象
-    grid: { size: 10, visible: true, type: 'mesh' }, //创建画布时，通过配置对象来设置背景网格
+    background: { color: "#fff" }, // 创建画布时初始化背景相关配置对象
+    grid: { size: 10, visible: true, type: "mesh" }, //创建画布时，通过配置对象来设置背景网格
     connecting: {
       router: {
-        name: 'er',
+        name: "er",
         args: {
           offset: 25,
-          direction: 'H',
+          direction: "H",
         },
       },
       createEdge() {
         return new Shape.Edge({
           attrs: {
             line: {
-              stroke: '#A2B1C3',
+              stroke: "#A2B1C3",
               strokeWidth: 1,
             },
           },
-        })
+        });
       },
     },
     embedding: {
       enabled: true,
       findParent({ node }) {
-        const bbox = node.getBBox()
+        const bbox = node.getBBox();
         return this.getNodes().filter((node) => {
-          const data = node.getData()
+          const data = node.getData();
           if (data && data.parent) {
-            const targetBBox = node.getBBox()
-            return bbox.isIntersectWithRect(targetBBox)
+            const targetBBox = node.getBBox();
+            return bbox.isIntersectWithRect(targetBBox);
           }
-          return false
-        })
+          return false;
+        });
       },
-    }
-  })
+    },
+  });
 
   graph.use(
     new Transform({
@@ -87,167 +121,178 @@ const createGraph = () => {
           // 保持纵横比
           return node.isNode() && node.data?.keepRatio === true;
         },
-        minWidth: 20,// 最小宽度
+        minWidth: 20, // 最小宽度
       },
       rotating: {
         enabled(node) {
           // 判断节点是否可旋转角度
-          return node.isNode() && node.data?.rotatable === true
+          return node.isNode() && node.data?.rotatable === true;
         },
       },
-    }),
-  )
+    })
+  );
   graph.use(
     new Selection({
       enabled: true,
       showNodeSelectionBox: true,
       showEdgeSelectionBox: false,
-      pointerEvents: 'none',
-      className: 'on-selection'
+      pointerEvents: "none",
+      className: "on-selection",
       // rubberband:true
-    }),
-  )
+    })
+  );
 
   // 注册节点展开收起监听事件
-  addNodeCollapseListener(graph)
-
-  graph.on('node:change:parent', ({ node }) => {
+  addNodeCollapseListener(graph);
+  graph.on("node:change:data", (e) => {
     // 监听节点父级变化事件
-    console.log('node:change:parent:', node);
-  })
+    console.log("node:change:data:", e);
+  });
 
-  graph.on('node:added', ({ node }) => {
+  graph.on("node:change:parent", ({ node }) => {
+    // 监听节点父级变化事件
+    console.log("node:change:parent:", node);
+  });
+
+  graph.on("node:added", ({ node }) => {
     // 监听节点添加事件
     if (node?.data?.zIndex !== undefined) {
-      node.setZIndex(node.data.zIndex)
+      node.setZIndex(node.data.zIndex);
     }
-  })
+  });
 
-  graph.on('cell:selected', ({ cell }) => {
+  graph.on("cell:selected", ({ cell }) => {
     // 监听节点/边选中事件
-    console.log(cell, ":::cell:selected")
-    selectedCell.value = cell
+    console.log(cell, ":::cell:selected");
+    selectedCell.value = cell;
     cell.setData({
-      selected: true
-    })
-  })
-  graph.on('cell:unselected', ({ cell }) => {
+      selected: true,
+    });
+  });
+  graph.on("cell:unselected", ({ cell }) => {
     // 监听节点/边取消选中事件
-    console.log(cell, ":::cell:unselected")
-    selectedCell.value = null
+    console.log(cell, ":::cell:unselected");
+    selectedCell.value = null;
     cell.setData({
-      selected: false
-    })
-  })
+      selected: false,
+    });
+  });
 
-  graph.on('edge:connected', ({ edge, options }) => {
+  graph.on("edge:connected", ({ edge, options }) => {
     // console.log(edge, options, 'edge:connected');
     console.log(graph.toJSON());
+  });
 
-  })
-
-  graph.on('edge:mouseup', ({ edge, options }) => {
+  graph.on("edge:mouseup", ({ edge, options }) => {
     // console.log(edge, options, 'edge:mouseup');
-    if (edge?.target?.cell === edge?.id || edge?.target?.cell === edge?._parent?.id) {
-      edge.remove()
+    if (
+      edge?.target?.cell === edge?.id ||
+      edge?.target?.cell === edge?._parent?.id
+    ) {
+      edge.remove();
     }
     if (!edge?.target?.cell) {
-      edge.remove()
+      edge.remove();
     }
-  })
+  });
 
   function showPorts(ports, show) {
     for (let i = 0, len = ports.length; i < len; i = i + 1) {
-      ports[i].style.opacity = show ? '1' : '0'
+      ports[i].style.opacity = show ? "1" : "0";
       // ports[i].style.visibility = show ? 'visible' : 'hidden'
     }
   }
 
-  graph.on('node:mouseenter', ({ node }) => {
-    const ports = container.querySelectorAll(`.x6-node[data-cell-id="${node.id}"] .x6-port-body`)
-    showPorts(ports, true)
-  })
+  graph.on("node:mouseenter", ({ node }) => {
+    const ports = container.querySelectorAll(
+      `.x6-node[data-cell-id="${node.id}"] .x6-port-body`
+    );
+    showPorts(ports, true);
+  });
 
-  graph.on('node:mouseleave', ({ node }) => {
-    const ports = container.querySelectorAll(`.x6-node[data-cell-id="${node.id}"] .x6-port-body`)
-    showPorts(ports, false)
-  })
+  graph.on("node:mouseleave", ({ node }) => {
+    const ports = container.querySelectorAll(
+      `.x6-node[data-cell-id="${node.id}"] .x6-port-body`
+    );
+    showPorts(ports, false);
+  });
 
-  graph.zoomToFit({ padding: 10, maxScale: 1 })
-  graph.drawBackground({ color: '#fff' })  // 创建画布后也可调用方法重绘背景
-  graph.drawGrid({ type: 'mesh' })            // 创建画布后也可调用方法重绘画布网格
-  graph.zoom(0.5)                             // 画布和图形整体的缩放
-  graph.translate(200, 40)                    // 图形相对画布的相对位置，平移
-  graph.centerContent()                       // 将画布内容中心与视口中心对齐
-}
+  graph.zoomToFit({ padding: 10, maxScale: 1 });
+  graph.drawBackground({ color: "#fff" }); // 创建画布后也可调用方法重绘背景
+  graph.drawGrid({ type: "mesh" }); // 创建画布后也可调用方法重绘画布网格
+  graph.zoom(0.5); // 画布和图形整体的缩放
+  graph.translate(200, 40); // 图形相对画布的相对位置，平移
+  graph.centerContent(); // 将画布内容中心与视口中心对齐
+};
 
 // 注册er图节点
 const registerNode = () => {
-  const ratio = 2 / 3
-  const LINE_HEIGHT = 30
-  const NODE_WIDTH = 160
+  const ratio = 2 / 3;
+  const LINE_HEIGHT = 30;
+  const NODE_WIDTH = 160;
   Graph.registerPortLayout(
-    'erPortPosition',
+    "erPortPosition",
     (portsPositionArgs, elemBBox) => {
       console.log(elemBBox, portsPositionArgs);
       return portsPositionArgs.map((_, index) => {
-
         return {
           position: {
             x: 0,
-            y: elemBBox.height < LINE_HEIGHT ? 0 : (index + 1) * LINE_HEIGHT * ratio,
+            y:
+              elemBBox.height < LINE_HEIGHT
+                ? 0
+                : (index + 1) * LINE_HEIGHT * ratio,
           },
           zIndex: 1,
           angle: 0,
-        }
-      })
+        };
+      });
     },
-    true,
-  )
+    true
+  );
 
   register({
-    shape: 'entity-node',
+    shape: "entity-node",
     component: erEntityNode,
-    zIndex:2,
+    zIndex: 2,
     ports: {
       groups: {
         right: {
           // position: 'top',
           position: {
-            name: 'absolute',
-            args: { x: '100%', y: ratio * LINE_HEIGHT * 0.5 },
+            name: "absolute",
+            args: { x: "100%", y: ratio * LINE_HEIGHT * 0.5 },
           },
           attrs: {
             circle: {
               magnet: true,
               r: 5,
-              stroke: '#3199FF',
-              fill: '#fff',
+              stroke: "#3199FF",
+              fill: "#fff",
               strokeWidth: 1,
             },
-          }
+          },
         },
         list: {
           zIndex: 1,
           markup: [
             {
-              tagName: 'rect',
-              selector: 'portBody',
-              className:'port-body'
+              tagName: "rect",
+              selector: "portBody",
+              className: "port-body",
             },
             {
-              tagName: 'circle',
-              selector: 'portNameLabel',
-              className:'port-name-label'
+              tagName: "circle",
+              selector: "portNameLabel",
+              className: "port-name-label",
             },
             // {
             //   tagName: 'line',
             //   selector: 'line',
             // },
             {
-              tagName: 'circle',
-              selector: 'portTypeLabel',
-
+              tagName: "circle",
+              selector: "portTypeLabel",
             },
           ],
           attrs: {
@@ -257,82 +302,81 @@ const registerNode = () => {
               // height: LINE_HEIGHT * ratio,
               strokeWidth: 1,
               // stroke: 'transparent',
-              fill: 'transparent',
+              fill: "transparent",
               // magnet: true,
               zIndex: 0,
             },
             portNameLabel: {
-              ref: 'portBody',
+              ref: "portBody",
               refX: 0,
-              refY: LINE_HEIGHT * ratio / 2,
+              refY: (LINE_HEIGHT * ratio) / 2,
               fontSize: 10,
-              stroke: '#3199FF',
-              fill: '#fff',
+              stroke: "#3199FF",
+              fill: "#fff",
               magnet: true,
               zIndex: 2,
-              r: 5
+              r: 5,
             },
             portTypeLabel: {
-              ref: 'portBody',
-              refX: '100%',
-              refY: LINE_HEIGHT * ratio / 2,
+              ref: "portBody",
+              refX: "100%",
+              refY: (LINE_HEIGHT * ratio) / 2,
               fontSize: 10,
-              stroke: '#3199FF',
-              fill: '#fff',
+              stroke: "#3199FF",
+              fill: "#fff",
               zIndex: 2,
               r: 5,
               magnet: true,
             },
           },
-          position: 'erPortPosition',
+          position: "erPortPosition",
         },
       },
     },
-  })
+  });
 
   Graph.registerNode(
-    'er-rect',
+    "er-rect",
     {
-      inherit: 'rect',
+      inherit: "rect",
       markup: [
         {
-          tagName: 'rect',
-          selector: 'body',
+          tagName: "rect",
+          selector: "body",
         },
         {
-          tagName: 'text',
-          selector: 'label',
+          tagName: "text",
+          selector: "label",
         },
         {
-          tagName: 'rect',
-          selector: 'button',
+          tagName: "rect",
+          selector: "button",
           attrs: {
             fill: "none",
             "pointer-events": "none",
           },
         },
         {
-          tagName: 'text',
-          selector: 'buttonLabel',
+          tagName: "text",
+          selector: "buttonLabel",
         },
       ],
       attrs: {
         rect: {
           magnet: true,
           strokeWidth: 1,
-          stroke: '#5F95FF',
-          fill: '#5F95FF',
+          stroke: "#5F95FF",
+          fill: "#5F95FF",
         },
         label: {
-          fontWeight: 'bold',
-          fill: '#ffffff',
+          fontWeight: "bold",
+          fill: "#ffffff",
           fontSize: 12,
         },
         buttonLabel: {
           ref: "button",
-          text: '+',
+          text: "+",
           cursor: "pointer",
-
         },
         button: {
           ref: "body",
@@ -342,28 +386,27 @@ const registerNode = () => {
           stroke: "#ccc",
           cursor: "pointer",
           event: "column:add",
-
-        }
+        },
       },
       ports: {
         groups: {
           list: {
             markup: [
               {
-                tagName: 'rect',
-                selector: 'portBody',
+                tagName: "rect",
+                selector: "portBody",
               },
               {
-                tagName: 'text',
-                selector: 'portNameLabel',
+                tagName: "text",
+                selector: "portNameLabel",
               },
               {
-                tagName: 'line',
-                selector: 'line',
+                tagName: "line",
+                selector: "line",
               },
               {
-                tagName: 'text',
-                selector: 'portTypeLabel',
+                tagName: "text",
+                selector: "portTypeLabel",
               },
             ],
             attrs: {
@@ -381,57 +424,64 @@ const registerNode = () => {
                 width: NODE_WIDTH,
                 height: LINE_HEIGHT,
                 strokeWidth: 1,
-                stroke: '#5F95FF',
-                fill: '#EFF4FF',
-
+                stroke: "#5F95FF",
+                fill: "#EFF4FF",
               },
               portNameLabel: {
-                ref: 'portBody',
+                ref: "portBody",
                 refX: 6,
                 refY: 6,
                 fontSize: 10,
-                fill: '#EFF4FF',
+                fill: "#EFF4FF",
                 magnet: true,
               },
               portTypeLabel: {
-                ref: 'portBody',
+                ref: "portBody",
                 refX: 95,
                 refY: 6,
                 fontSize: 10,
-                fill: '#EFF4FF',
+                fill: "#EFF4FF",
                 magnet: true,
               },
             },
-            position: 'erPortPosition',
+            position: "erPortPosition",
           },
         },
       },
     },
-    true,
-  )
-
-}
+    true
+  );
+};
 
 // 拖拽生成正方形或者圆形
 const startDrag = (type, e) => {
   startDragToGraph(graph, type, e);
-}
-
+};
 </script>
 
 <template>
-  <div class="container_warp">
+  <header class="header">
+    <span v-if="erConfig">
+      {{ erConfig.er_name }}
+    </span>
+  </header>
+  <main class="container_warp">
     <left-drawer @start-drag="startDrag"></left-drawer>
     <div id="container" class="container"></div>
     <right-drawer :currentCell="selectedCell"></right-drawer>
     <TeleportContainer />
-  </div>
+  </main>
 </template>
 
-<style  lang="scss">
+<style lang="scss">
 @import "@/assets/iconfont.css";
 
-
+.header {
+  height: 50px;
+  text-align: center;
+  line-height: 50px;
+  // background-color:  #e8eaec;
+}
 
 .container_warp {
   position: relative;
@@ -442,9 +492,11 @@ const startDrag = (type, e) => {
   .container {
     flex: 1;
   }
-  .x6-node-selected .port-body{
+
+  .x6-node-selected .port-body {
     display: none;
   }
+
   .x6-edge-selected path:nth-child(2) {
     stroke: #239edd;
     stroke-width: 1.5px;

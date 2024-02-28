@@ -1,10 +1,11 @@
 {
-  "name": "vue-gantt",
+  "name": "vue3-graph",
+  "description": "基于vue3开发的可视化图形合集",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode dev",
     "build": "vite build --mode production",
     "preview": "vite preview"
   },

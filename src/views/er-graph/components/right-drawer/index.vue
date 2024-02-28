@@ -15,14 +15,15 @@ const cellId = computed(() => props?.currentCell?.id)
 
 
 <template>
-  <div class="right-drawer">
+  <aside class="right-drawer">
     {{ cellId }}
-  </div>
+  </aside>
 </template>
 
 <style scoped>
 .right-drawer {
   width: 100px;
   background-color: #fff;
+  border-top: 1px solid #eee;
 }
 </style>

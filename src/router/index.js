@@ -24,22 +24,29 @@ const router = createRouter({
       component: GanttMain,
     },
     {
-      path: "/main/:cfgNo",
+      path: "/gantt/:cfgNo",
       name: "GanttMain3",
       component: GanttMain,
+    },
+    {
+      path: "/gantt/:cfgNo/:pIds",
+      name: "GanttMain4",
+      component: GanttMain,
+    },
+    {
+      path: "/er",
+      component: () => import("../views/er-graph/index.vue"),
+      children:[
+        {
+          "path": ":cfgNo",
+          "component": () => import("../views/er-graph/index.vue")
+        }
+      ]
     },
     {
       path: "/ergraph",
       component: () => import("../views/er-graph/index.vue"),
     },
-    // {
-    //   path: '/about',
-    //   name: 'about',
-    //   // route level code-splitting
-    //   // this generates a separate chunk (About.[hash].js) for this route
-    //   // which is lazy-loaded when the route is visited.
-    //   component: () => import('../views/AboutView.vue')
-    // }
   ],
 });
 

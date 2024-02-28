@@ -31,7 +31,7 @@ export default defineConfig({
     },
   },
   build:{
-    outDir:'gantt'
+    outDir:'graph'
   },
-  base:'/gantt/'
+  base:'/graph/'
 });

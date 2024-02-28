@@ -1,5 +1,5 @@
 <template>
-  <div class="drawer_container">
+  <aside class="drawer_container">
     <div class="drawer_title">节点</div>
     <div class="drawer_wrap">
       <div class="node-group">
@@ -20,7 +20,7 @@
         </div> -->
       </div>
     </div>
-  </div>
+  </aside>
 </template>
 
 <script setup lang="ts">
@@ -39,9 +39,10 @@ const startDrag = (type: string, event: Event) => {
   width: 200px;
   min-width: 200px;
   border-right: 1px solid #eee;
+  border-top: 1px solid #eee;
 
   .drawer_title {
-    border-bottom: 1px solid #e8eaec;
+    border-bottom: 1px solid #eee;
     box-sizing: border-box;
     padding: 14px 16px;
     color: #333;

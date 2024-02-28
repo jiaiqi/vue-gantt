@@ -7,8 +7,9 @@
           <Minus v-else />
         </el-icon>
       </div>
-      <span :contenteditable="selected ? 'plaintext-only' : 'false'" style="flex: 1;" @input="onTitleChange">{{ nodeTitle
-      }}</span>
+      <span :contenteditable="selected && onTitleEdit ? 'plaintext-only' : 'false'" style="flex: 1;min-height: 10px;"
+        @blur="onTitleChange" @click="onTitleEdit = true">{{ nodeTitle
+        }}</span>
       <div class="btn-light" @click="addPort">
         <el-icon>
           <Plus />
@@ -16,8 +17,9 @@
       </div>
     </div>
     <div class="entity-container" :class="{ collapses }">
-      <div class="entity-container-item" v-for="item in colsList" :contenteditable="selected ? 'plaintext-only' : 'false'"
-        @input="onColumnChange($event, item)">
+      <div class="entity-container-item" v-for="item in colsList"
+        :contenteditable="selected && item.onEdit ? 'plaintext-only' : 'false'" @blur="onColumnChange($event, item)"
+        @click="item.onEdit = true">
         <div class="text">{{ item.label }}</div>
         <div class="text">{{ item.type }}</div>
       </div>
@@ -27,7 +29,6 @@
 
 <script lang="ts">
 import { Plus, Minus } from '@element-plus/icons-vue'
-import { useThrottledRefHistory } from '@vueuse/core'
 import { defineComponent } from 'vue'
 
 export default defineComponent({
@@ -44,7 +45,8 @@ export default defineComponent({
       node: null,
       collapses: false,
       colsList: [],
-      selected: false
+      selected: false,
+      onTitleEdit: false
     }
   },
   computed: {
@@ -55,9 +57,20 @@ export default defineComponent({
   methods: {
     onTitleChange(e) {
       console.log(e?.target?.innerText, '\nonTitleChange');
+      this.node.setData({ title: e?.target?.innerText })
+      this.onTitleEdit = false
     },
     onColumnChange(e, col) {
-      console.log(e?.target?.innerText?.split('\n'), '\onColumnChange', col);
+      const valArr = e?.target?.innerText?.split('\n')
+      console.log(valArr, '\onColumnChange', col);
+      this.colsList.forEach(item => {
+        if (item.id && item.id === col.id) {
+          item.label = valArr[0]
+          item.type = valArr[1]
+          item.onEdit = false
+        }
+      })
+      this.node.setData({ colsList: JSON.parse(JSON.stringify(this.colsList)) })
     },
     resizeNode() {
       this.$nextTick(() => {
@@ -103,11 +116,15 @@ export default defineComponent({
   mounted() {
     const node = (this as any).getNode()
     this.node = node
-    this.colsList = node.getData()?.colsList || []
+    this.colsList = (node.getData()?.colsList || []).map(item => {
+      item.onEdit = false;
+      return item
+    })
     console.log(node)
     this.resizeNode()
-    node.on('change:data', ({ current }) => {
+    node.on('change:data', ({cell,previous,current}) => {
       // 监听选中/取消选中
+      console.log(current);
       this.selected = current?.selected
     })
   },
@@ -182,6 +199,7 @@ export default defineComponent({
 
       .text {
         font-size: 10px;
+        min-width: 50px;
       }
     }
   }
