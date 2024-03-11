@@ -1,79 +1,305 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { Graph, Cell, Shape, Node } from "@antv/x6";
 import { register, getTeleport } from "@antv/x6-vue-shape";
 import erEntityNode from "./components/er-node/index.vue";
-// import { data } from './data'
 import { Transform } from "@antv/x6-plugin-transform";
 import { Selection } from "@antv/x6-plugin-selection";
 import {
   registerCustomGroupNode,
   addNodeCollapseListener,
+  registerNode,
 } from "./utils/x6util";
+import { ErConfig } from "./common/type";
 import { startDragToGraph } from "./utils/methods";
 import { $http } from "@/common/http";
 import { useRoute } from "vue-router";
 // 注册组件
 import leftDrawer from "./components/left-drawer/index.vue";
 import rightDrawer from "./components/right-drawer/index.vue";
+import { ElMessage } from "element-plus";
 
 const route = useRoute();
 
 const TeleportContainer = getTeleport();
 
+// const _erConfig = computed<ErConfig>(() => {
+//   return erConfig
+// })
+
 let container: HTMLElement | undefined;
 let graph;
 
 // 挂载完成后
-onMounted(() => {
+onMounted(async () => {
   container = document.getElementById("container") as HTMLElement | undefined;
   registerNode();
   registerCustomGroupNode();
-  if (cfgNo?.value) {
-    getErCfg(cfgNo?.value);
-  }
   // getData();
   // 创建画布
-  createGraph()
+  createGraph();
+  await initData();
 });
 
-const cfgNo = ref(route?.params?.cfgNo);
-const erConfig = ref(null);
+const initData = async () => {
+  if (cfgNo?.value) {
+    // 查询配置
+    await getErCfg(cfgNo?.value);
+    // 查询表
+    const tables = await getErEntityData();
+    if (Array.isArray(tables) && tables.length > 0) {
+      // 查询字段
+      const columns = await getTableColumns(tables);
+      const finalTables = tables.map((item) => {
+        return {
+          ...item,
+          columns: columns.filter((col) => col._fk_obj_no === item._no),
+        };
+      });
+      const nodes = finalTables.map((item, index) => {
+        return {
+          shape: "entity-node",
+          x: ((index % 5) - 2.5) * 150,
+          y: parseInt(index / 5) * 100,
+          width: item._title?.length * 18 + 80,
+          data: {
+            title: item._title,
+            colsList: item.columns,
+            no: item._no
+            // colsList: list,
+          },
+          ports: [
+            {
+              id: item._no,
+              group: "right",
+            },
+            ...item.columns.map((col) => {
+              return {
+                group: "list",
+                data: {
+                  id: col._no,
+                  name: col._title,
+                  type: col._type,
+                  // ...col,
+                },
+              };
+            }),
+          ],
+        };
+      });
+      graph.addNodes(nodes);
+    }
+    // 查询分组容器数据
+    await getErGroupData();
+  }
+};
+
+const cfgNo = ref(route?.params?.cfgNo || route?.query?.cfgNo || route?.query?.cfg);
+
+let erConfig: ErConfig;
 const getErCfg = async (er_no) => {
-  // 查询甘特图配置
+  // 查询er图配置
   const req = {
     serviceName: "srvtools_er_model_cfg_select",
     colNames: ["*"],
-    condition: [{
-      colName: 'er_no',
-      ruleType: 'eq',
-      value: er_no
-    }],
+    condition: [
+      {
+        colName: "er_no",
+        ruleType: "eq",
+        value: er_no,
+      },
+    ],
     page: { pageNo: 1, rownumber: 1 },
   };
-  const url = `/config/select/srvtools_er_model_cfg_select`
+  const url = `/config/select/srvtools_er_model_cfg_select`;
   const res = await $http.post(url, req);
   if (Array.isArray(res.data.data) && res.data.data.length > 0) {
-    const data = res.data.data[0]
-    erConfig.value = data;
-    return data
+    const data = res.data.data[0];
+    erConfig = {
+      items_add_srv: "srvoa_project_data_table_col_add", // 目前没有这个配置 暂时写死
+      ...(data || {}),
+    };
+    return data;
+  } else if (res?.data?.resultCode === "0011") {
+    openLoginDialog();
   }
 };
 
-// 加载数据创建画布
-const getData = () => {
-  createGraph();
+const erEntityData = ref(null);
+const getErEntityData = async () => {
+  // 查询er图实体数据
+  const serviceName = erConfig?.obj_select_srv;
+  const req = {
+    serviceName: serviceName,
+    colNames: ["*"],
+    page: { pageNo: 1, rownumber: 10 },
+  };
+  const url = `/${erConfig.er_mapp}/select/${serviceName}`;
+  const res = await $http.post(url, req);
+  erEntityData.value = res.data.data.map((item) => {
+    return {
+      _origin_data: item,
+      _no: item[erConfig.obj_col_no], //编号
+      _title: item[erConfig.obj_col_title], //标题
+      _fk_group_no: item[erConfig.obj_col_fk_group_no], //归属分组编号
+    };
+  });
+  return erEntityData.value;
 };
 
-const selectedCell = ref(null);
+const tableColumns = ref([]);
+const getTableColumns = async (tables = []) => {
+  // 查询er图实体的字段
+  const tableIds = tables.map((item) => item._no);
+  const serviceName = erConfig.items_select_srv;
+  const req = {
+    serviceName: serviceName,
+    colNames: ["*"],
+    condition: [
+      {
+        colName: erConfig.items_col_fk_obj_no,
+        ruleType: "in",
+        value: tableIds.toString(),
+      },
+    ],
+    page: { pageNo: 1, rownumber: 10 },
+  };
+  const url = `/${erConfig.er_mapp}/select/${serviceName}`;
+  const res = await $http.post(url, req);
+  console.log(res);
 
+  tableColumns.value = res.data.data.map((item) => {
+    return {
+      _origin_data: item,
+      _fk_obj_no: item[erConfig.items_col_fk_obj_no], //归属对象编号
+      _title: item[erConfig.items_col_title], //字段标题
+      _type: item[erConfig.items_col_type], //字段类型
+      _no: item[erConfig.items_col_no], //字段编号
+    };
+  });
+  return tableColumns.value;
+};
+
+const getErGroupData = async () => {
+  // 查询er图容器数据
+  const serviceName = erConfig.group_select_srv;
+  const req = {
+    serviceName: serviceName,
+    colNames: ["*"],
+    page: { pageNo: 1, rownumber: 10 },
+  };
+  const url = `/${erConfig.er_mapp}/select/${serviceName}`;
+  const res = await $http.post(url, req);
+  return res.data.data;
+};
+const updateGroupTitle = async (title) => {
+  console.log('updateGroupTitle',title);
+  
+}
+const updateObjTitle = async (item) => {
+  const serviceName = erConfig.obj_update_srv;
+  const req = [
+    {
+      serviceName: serviceName,
+      condition: [
+        {
+          colName: erConfig.obj_col_no,
+          ruleType: "eq",
+          value: item.no,
+        },
+      ],
+      data: [
+        {
+          colName: erConfig.obj_col_title,
+          value: item.title,
+        },
+      ],
+    }
+  ]
+  const url = `/${erConfig.er_mapp}/update/${serviceName}`
+  const res = await $http.post(url, req);
+  if (res.data.state === 'SUCCESS') {
+    ElMessage.success('修改成功')
+    const resData = res.data.response?.[0]?.response?.effect_data?.[0]
+    console.log('updateObjTitleResData', resData);
+    return resData
+  }
+}
+
+const updateItem = async (item) => {
+  const serviceName = erConfig.items_update_srv;
+  const data = {}
+  if (item._type !== item._origin_data[erConfig.items_col_type]) {
+    data[erConfig.items_col_type] = item._type
+  }
+
+  if (item._title !== item._origin_data[erConfig.items_col_title]) {
+    data[erConfig.items_col_title] = item._title
+  }
+  const req = [
+    {
+      serviceName: serviceName,
+      condition: [
+        {
+          colName: erConfig.items_col_no,
+          ruleType: "eq",
+          value: item._no,
+        },
+      ],
+      data: [data],
+    }
+  ]
+
+
+  const url = `/${erConfig.er_mapp}/update/${serviceName}`
+  const res = await $http.post(url, req);
+  if (res.data.state === 'SUCCESS') {
+    ElMessage.success('修改成功')
+    const resData = res.data.response?.[0]?.response?.effect_data?.[0]
+    console.log('updateItemResData', resData);
+    return resData
+  }
+}
+
+const addItem = async (item) => {
+  const url = `/${erConfig.er_mapp}/add/${erConfig?.items_add_srv}`
+  const req = [
+    {
+      serviceName: erConfig?.items_add_srv,
+      condition: [],
+      data: [
+        {
+          col_name: item._title,
+          // col_en: item.value,
+          col_type: item._type,
+          col_no: item._id,
+          tbl_no: item._fk_obj_no,
+          parent_no: "/",
+          path: `/${item._id}/`,
+        },
+      ],
+    },
+  ];
+  const res = await $http.post(url, req);
+  if (res.data.state === 'SUCCESS') {
+    ElMessage.success('添加成功')
+  }
+};
+
+const operateData = (data, type) => {
+
+}
+
+const selectedCell = ref(null);
 // 创建画布
 const createGraph = () => {
   graph = new Graph({
     container: container,
-    height: 1080,
+    // height: 1080,
     background: { color: "#fff" }, // 创建画布时初始化背景相关配置对象
     grid: { size: 10, visible: true, type: "mesh" }, //创建画布时，通过配置对象来设置背景网格
+    panning: true, // 画布是否可以拖动
+    mousewheel: true, // 画布是否可以鼠标滚轮缩放
     connecting: {
       router: {
         name: "er",
@@ -144,9 +370,39 @@ const createGraph = () => {
 
   // 注册节点展开收起监听事件
   addNodeCollapseListener(graph);
+
   graph.on("node:change:data", (e) => {
     // 监听节点父级变化事件
-    console.log("node:change:data:", e);
+    const { current } = e
+    if (current?.handler?.type) {
+      console.log("node:change:data:", e);
+    }
+    if (current?.handler?.type) {
+      const { type } = current.handler
+      switch (type) {
+        // er图标题更改
+        case 'ernode:title:update':
+          updateObjTitle({
+            title: current.handler.item,
+            no: current.no
+          })
+          break;
+        // er图子项目更改
+        case 'ernode:item:update':
+          updateItem(current.handler.item)
+          break;
+        // er图子项目新增
+        case 'ernode:item:add':
+          addItem(current.handler.item)
+          break;
+        // 容器标题更改
+        case 'group:title:update':
+          updateGroupTitle(current.handler.title)
+          break;
+        default:
+          break;
+      }
+    }
   });
 
   graph.on("node:change:parent", ({ node }) => {
@@ -225,237 +481,18 @@ const createGraph = () => {
   graph.centerContent(); // 将画布内容中心与视口中心对齐
 };
 
-// 注册er图节点
-const registerNode = () => {
-  const ratio = 2 / 3;
-  const LINE_HEIGHT = 30;
-  const NODE_WIDTH = 160;
-  Graph.registerPortLayout(
-    "erPortPosition",
-    (portsPositionArgs, elemBBox) => {
-      console.log(elemBBox, portsPositionArgs);
-      return portsPositionArgs.map((_, index) => {
-        return {
-          position: {
-            x: 0,
-            y:
-              elemBBox.height < LINE_HEIGHT
-                ? 0
-                : (index + 1) * LINE_HEIGHT * ratio,
-          },
-          zIndex: 1,
-          angle: 0,
-        };
-      });
-    },
-    true
-  );
-
-  register({
-    shape: "entity-node",
-    component: erEntityNode,
-    zIndex: 2,
-    ports: {
-      groups: {
-        right: {
-          // position: 'top',
-          position: {
-            name: "absolute",
-            args: { x: "100%", y: ratio * LINE_HEIGHT * 0.5 },
-          },
-          attrs: {
-            circle: {
-              magnet: true,
-              r: 5,
-              stroke: "#3199FF",
-              fill: "#fff",
-              strokeWidth: 1,
-            },
-          },
-        },
-        list: {
-          zIndex: 1,
-          markup: [
-            {
-              tagName: "rect",
-              selector: "portBody",
-              className: "port-body",
-            },
-            {
-              tagName: "circle",
-              selector: "portNameLabel",
-              className: "port-name-label",
-            },
-            // {
-            //   tagName: 'line',
-            //   selector: 'line',
-            // },
-            {
-              tagName: "circle",
-              selector: "portTypeLabel",
-            },
-          ],
-          attrs: {
-            portBody: {
-              width: NODE_WIDTH * ratio,
-              height: LINE_HEIGHT * ratio,
-              // height: LINE_HEIGHT * ratio,
-              strokeWidth: 1,
-              // stroke: 'transparent',
-              fill: "transparent",
-              // magnet: true,
-              zIndex: 0,
-            },
-            portNameLabel: {
-              ref: "portBody",
-              refX: 0,
-              refY: (LINE_HEIGHT * ratio) / 2,
-              fontSize: 10,
-              stroke: "#3199FF",
-              fill: "#fff",
-              magnet: true,
-              zIndex: 2,
-              r: 5,
-            },
-            portTypeLabel: {
-              ref: "portBody",
-              refX: "100%",
-              refY: (LINE_HEIGHT * ratio) / 2,
-              fontSize: 10,
-              stroke: "#3199FF",
-              fill: "#fff",
-              zIndex: 2,
-              r: 5,
-              magnet: true,
-            },
-          },
-          position: "erPortPosition",
-        },
-      },
-    },
-  });
-
-  Graph.registerNode(
-    "er-rect",
-    {
-      inherit: "rect",
-      markup: [
-        {
-          tagName: "rect",
-          selector: "body",
-        },
-        {
-          tagName: "text",
-          selector: "label",
-        },
-        {
-          tagName: "rect",
-          selector: "button",
-          attrs: {
-            fill: "none",
-            "pointer-events": "none",
-          },
-        },
-        {
-          tagName: "text",
-          selector: "buttonLabel",
-        },
-      ],
-      attrs: {
-        rect: {
-          magnet: true,
-          strokeWidth: 1,
-          stroke: "#5F95FF",
-          fill: "#5F95FF",
-        },
-        label: {
-          fontWeight: "bold",
-          fill: "#ffffff",
-          fontSize: 12,
-        },
-        buttonLabel: {
-          ref: "button",
-          text: "+",
-          cursor: "pointer",
-        },
-        button: {
-          ref: "body",
-          height: 14,
-          width: 16,
-          fill: "#f5f5f5",
-          stroke: "#ccc",
-          cursor: "pointer",
-          event: "column:add",
-        },
-      },
-      ports: {
-        groups: {
-          list: {
-            markup: [
-              {
-                tagName: "rect",
-                selector: "portBody",
-              },
-              {
-                tagName: "text",
-                selector: "portNameLabel",
-              },
-              {
-                tagName: "line",
-                selector: "line",
-              },
-              {
-                tagName: "text",
-                selector: "portTypeLabel",
-              },
-            ],
-            attrs: {
-              // line: {
-              //   width: 1,
-              //   height: LINE_HEIGHT,
-              //   strokeWidth: 1,
-              //   stroke: '#5F95FF',
-              //   refX: NODE_WIDTH / 2,
-              //   refY: 0,
-              //   y1: 0,
-              //   y2: LINE_HEIGHT
-              // },
-              portBody: {
-                width: NODE_WIDTH,
-                height: LINE_HEIGHT,
-                strokeWidth: 1,
-                stroke: "#5F95FF",
-                fill: "#EFF4FF",
-              },
-              portNameLabel: {
-                ref: "portBody",
-                refX: 6,
-                refY: 6,
-                fontSize: 10,
-                fill: "#EFF4FF",
-                magnet: true,
-              },
-              portTypeLabel: {
-                ref: "portBody",
-                refX: 95,
-                refY: 6,
-                fontSize: 10,
-                fill: "#EFF4FF",
-                magnet: true,
-              },
-            },
-            position: "erPortPosition",
-          },
-        },
-      },
-    },
-    true
-  );
+// 拖拽生成元素
+const startDrag = (type, e) => {
+  console.log(type, e);
+  startDragToGraph(graph, type, e);
 };
 
-// 拖拽生成正方形或者圆形
-const startDrag = (type, e) => {
-  startDragToGraph(graph, type, e);
+// 登录过期重新登录
+const loginRef = ref(null);
+const openLoginDialog = () => {
+  loginRef.value?.open?.(() => {
+    initData();
+  });
 };
 </script>
 
@@ -471,6 +508,7 @@ const startDrag = (type, e) => {
     <right-drawer :currentCell="selectedCell"></right-drawer>
     <TeleportContainer />
   </main>
+  <login-dialog ref="loginRef"></login-dialog>
 </template>
 
 <style lang="scss">
@@ -493,6 +531,10 @@ const startDrag = (type, e) => {
     flex: 1;
   }
 
+  .x6-node .x6-port-body {
+    opacity: 0;
+  }
+
   .x6-node-selected .port-body {
     display: none;
   }
@@ -501,27 +543,5 @@ const startDrag = (type, e) => {
     stroke: #239edd;
     stroke-width: 1.5px;
   }
-
-  // .x6-widget-selection-box {
-  //   border: 2px dashed #239edd;
-  // }
-
-  // .x6-widget-selection-inner {
-  //   border: 1px solid #239edd;
-  // }
-
-  // .right_drawer {
-  //   height: 100%;
-  //   width: 300px;
-  //   border-left: 1px solid #eee;
-  //   background: #fff;
-  // }
-
-  // .left_drawer {
-  //   height: 100%;
-  //   width: 300px;
-  //   border-left: 1px solid #eee;
-  //   background: #fff;
-  // }
 }
 </style>

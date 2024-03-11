@@ -1,4 +1,6 @@
 import { Graph, Node } from "@antv/x6";
+import { register } from "@antv/x6-vue-shape";
+import erEntityNode from "../components/er-node/index.vue";
 
 const LINE_HEIGHT = 24;
 const NODE_WIDTH = 150;
@@ -257,7 +259,7 @@ Entity.config({
   ports: {
     groups: {
       right: {
-        position: 'right',
+        position: "right",
         attrs: {
           circle: {
             magnet: true,
@@ -342,7 +344,6 @@ export const addNodeCollapseListener = (graph) => {
         });
       }
     };
-
     collapse(node);
   });
 };
@@ -408,15 +409,52 @@ export const useGroup = (graph) => {
       width,
       height,
       data: { parent: true, resizable: resizable, zIndex },
+      tools: [
+        {
+          name: "node-editor",
+          args: {
+            x: 0,
+            y: 0,
+            height: LINE_HEIGHT,
+            getText({ cell }) {
+              return cell?.attrs?.text?.text?.trim() || "";
+            },
+            setText: ({ cell, value }) => {
+              cell.attr("text/text", value);
+              cell.setData({
+                handler: {
+                  type: "group:title:update",
+                  title: value,
+                },
+              });
+              cell.setData({
+                handler: null,
+              });
+              // 'text/text'
+            },
+            // setText({cell, text}){
+            //   console.log(cell,text);
+
+            // },
+            attrs: {
+              backgroundColor: "transparent",
+              color:'#fff'
+            },
+          },
+        },
+      ],
       attrs: {
         body: {
           fill: fill || undefined,
           stroke,
           strokeWidth: 1,
         },
-        label: {
+        text: {
           text,
         },
+        // label: {
+        //   text,
+        // },
       },
       ...(others || {}),
     });
@@ -464,4 +502,217 @@ export const useGroup = (graph) => {
   };
 
   return { Group, createGroup, createNode, createEdge, createEntity };
+};
+
+// 注册er图节点
+export const registerNode = () => {
+  const ratio = 2 / 3;
+  const LINE_HEIGHT = 30;
+  const NODE_WIDTH = 160;
+  Graph.registerPortLayout(
+    "erPortPosition",
+    (portsPositionArgs, elemBBox) => {
+      return portsPositionArgs.map((_, index) => {
+        return {
+          position: {
+            x: 0,
+            y:
+              elemBBox.height < LINE_HEIGHT
+                ? 0
+                : (index + 1) * LINE_HEIGHT * ratio,
+          },
+          zIndex: 1,
+          angle: 0,
+        };
+      });
+    },
+    true
+  );
+
+  register({
+    shape: "entity-node",
+    component: erEntityNode,
+    zIndex: 2,
+    ports: {
+      groups: {
+        right: {
+          // position: 'top',
+          position: {
+            name: "absolute",
+            args: { x: "100%", y: ratio * LINE_HEIGHT * 0.5 },
+          },
+          attrs: {
+            circle: {
+              magnet: true,
+              r: 5,
+              stroke: "#3199FF",
+              fill: "#fff",
+              strokeWidth: 1,
+            },
+          },
+        },
+        list: {
+          zIndex: 1,
+          markup: [
+            {
+              tagName: "rect",
+              selector: "portBody",
+              className: "port-body",
+            },
+            {
+              tagName: "circle",
+              selector: "portNameLabel",
+              className: "port-name-label",
+            },
+            // {
+            //   tagName: 'line',
+            //   selector: 'line',
+            // },
+            {
+              tagName: "circle",
+              selector: "portTypeLabel",
+            },
+          ],
+          attrs: {
+            portBody: {
+              width: NODE_WIDTH * ratio,
+              height: LINE_HEIGHT * ratio,
+              // height: LINE_HEIGHT * ratio,
+              strokeWidth: 1,
+              // stroke: 'transparent',
+              fill: "transparent",
+              // magnet: true,
+              zIndex: 0,
+            },
+            portNameLabel: {
+              ref: "portBody",
+              refX: 0,
+              refY: (LINE_HEIGHT * ratio) / 2,
+              fontSize: 10,
+              stroke: "#3199FF",
+              fill: "#fff",
+              magnet: true,
+              zIndex: 2,
+              r: 5,
+            },
+            portTypeLabel: {
+              ref: "portBody",
+              refX: "100%",
+              refY: (LINE_HEIGHT * ratio) / 2,
+              fontSize: 10,
+              stroke: "#3199FF",
+              fill: "#fff",
+              zIndex: 2,
+              r: 5,
+              magnet: true,
+            },
+          },
+          position: "erPortPosition",
+        },
+      },
+    },
+  });
+
+  Graph.registerNode(
+    "er-rect",
+    {
+      inherit: "rect",
+      markup: [
+        {
+          tagName: "rect",
+          selector: "body",
+        },
+        {
+          tagName: "text",
+          selector: "label",
+        },
+        {
+          tagName: "rect",
+          selector: "button",
+          attrs: {
+            fill: "none",
+            "pointer-events": "none",
+          },
+        },
+        {
+          tagName: "text",
+          selector: "buttonLabel",
+        },
+      ],
+      attrs: {
+        rect: {
+          magnet: true,
+          strokeWidth: 1,
+          stroke: "#5F95FF",
+          fill: "#5F95FF",
+        },
+        label: {
+          fontWeight: "bold",
+          fill: "#ffffff",
+          fontSize: 12,
+        },
+        buttonLabel: {
+          ref: "button",
+          text: "+",
+          cursor: "pointer",
+        },
+        button: {
+          ref: "body",
+          height: 14,
+          width: 16,
+          fill: "#f5f5f5",
+          stroke: "#ccc",
+          cursor: "pointer",
+          event: "column:add",
+        },
+      },
+      ports: {
+        groups: {
+          list: {
+            markup: [
+              {
+                tagName: "rect",
+                selector: "portBody",
+              },
+              {
+                tagName: "text",
+                selector: "portNameLabel",
+              },
+              {
+                tagName: "text",
+                selector: "portTypeLabel",
+              },
+            ],
+            attrs: {
+              portBody: {
+                width: NODE_WIDTH,
+                height: LINE_HEIGHT,
+                strokeWidth: 1,
+                stroke: "#5F95FF",
+                fill: "#EFF4FF",
+              },
+              portNameLabel: {
+                ref: "portBody",
+                refX: 6,
+                refY: 6,
+                fontSize: 10,
+                fill: "#EFF4FF",
+                magnet: true,
+              },
+              portTypeLabel: {
+                ref: "portBody",
+                refX: 95,
+                refY: 6,
+                fontSize: 10,
+                fill: "#EFF4FF",
+                magnet: true,
+              },
+            },
+            position: "erPortPosition",
+          },
+        },
+      },
+    },
+    true
+  );
 };

@@ -1,16 +1,17 @@
 <template>
   <div class="er-entity" ref="erEntity">
-    <div class="entity-header">
+    <div class="entity-header" :title="nodeTitle">
       <div class="btn" @click="changeCollapses">
         <el-icon>
           <Plus v-if="collapses" />
           <Minus v-else />
         </el-icon>
       </div>
-      <span :contenteditable="selected && onTitleEdit ? 'plaintext-only' : 'false'" style="flex: 1;min-height: 10px;"
-        @blur="onTitleChange" @click="onTitleEdit = true">{{ nodeTitle
+      <span :contenteditable="selected && onTitleEdit ? 'plaintext-only' : 'false'"
+        style="flex: 1;min-height: 10px;white-space: nowrap;overflow: hidden;" @blur="onTitleChange" @click="onTitleEdit = true">{{
+          nodeTitle
         }}</span>
-      <div class="btn-light" @click="addPort">
+      <div class="btn-light" @click="openAddDialog">
         <el-icon>
           <Plus />
         </el-icon>
@@ -20,15 +21,41 @@
       <div class="entity-container-item" v-for="item in colsList"
         :contenteditable="selected && item.onEdit ? 'plaintext-only' : 'false'" @blur="onColumnChange($event, item)"
         @click="item.onEdit = true">
-        <div class="text">{{ item.label }}</div>
-        <div class="text">{{ item.type }}</div>
+        <div class="text">{{ item.label || item._title || '' }}</div>
+        <div class="text">{{ item.type || item._type || '' }}</div>
       </div>
     </div>
+
+    <el-dialog v-model="dialogFormVisible" title="新增字段" width="500" append-to-body>
+      <el-form :model="form">
+        <el-form-item label="字段名" label-width="140px">
+          <el-input v-model="form.name" autocomplete="off" />
+        </el-form-item>
+        <el-form-item label="字段类型" label-width="140px">
+          <el-input v-model="form.type" autocomplete="off" />
+        </el-form-item>
+        <!-- <el-form-item label="Zones" :label-width="formLabelWidth">
+        <el-select v-model="form.region" placeholder="Please select a zone">
+          <el-option label="Zone No.1" value="shanghai" />
+          <el-option label="Zone No.2" value="beijing" />
+        </el-select>
+      </el-form-item> -->
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="dialogFormVisible = false">取消</el-button>
+          <el-button type="primary" @click="addPort">
+            确认
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script lang="ts">
 import { Plus, Minus } from '@element-plus/icons-vue'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import { defineComponent } from 'vue'
 
 export default defineComponent({
@@ -37,16 +64,19 @@ export default defineComponent({
   components: {
     Plus, Minus
   },
-  props: {
-    onSelected: Boolean
-  },
   data() {
     return {
       node: null,
+      nodeData: null,
       collapses: false,
       colsList: [],
       selected: false,
-      onTitleEdit: false
+      onTitleEdit: false,
+      dialogFormVisible: false,
+      form: {
+        name: "",//字段名
+        type: '',//字段类型
+      }
     }
   },
   computed: {
@@ -57,37 +87,78 @@ export default defineComponent({
   methods: {
     onTitleChange(e) {
       console.log(e?.target?.innerText, '\nonTitleChange');
-      this.node.setData({ title: e?.target?.innerText })
+      this.node.setData({
+        title: e?.target?.innerText,
+        handler: {
+          type: 'ernode:title:update',
+          item: e?.target?.innerText
+        }
+      })
       this.onTitleEdit = false
+      setTimeout(() => {
+        this.node.setData({
+          handler: null
+        })
+      }, 200);
     },
     onColumnChange(e, col) {
       const valArr = e?.target?.innerText?.split('\n')
       console.log(valArr, '\onColumnChange', col);
-      this.colsList.forEach(item => {
-        if (item.id && item.id === col.id) {
-          item.label = valArr[0]
-          item.type = valArr[1]
-          item.onEdit = false
+      const colsList = this.colsList.map(item => {
+        const obj = { ...item }
+        if (item._no && item._no === col._no) {
+          obj.label = valArr[0]
+          obj.type = valArr[1]
+          obj.onEdit = false
+        }
+        return obj
+      })
+      this.node.setData({
+        colsList: JSON.parse(JSON.stringify(colsList)),
+        handler: {
+          type: 'ernode:item:update',
+          item: {
+            ...col,
+            _type: valArr[1],
+            _title: valArr[0]
+          }
         }
       })
-      this.node.setData({ colsList: JSON.parse(JSON.stringify(this.colsList)) })
+      this.node.setData({
+        handler: null
+      })
     },
     resizeNode() {
       this.$nextTick(() => {
         this.node?.resize?.(this.$refs.erEntity?.clientWidth, this.$refs.erEntity?.clientHeight)
       })
     },
+    openAddDialog() {
+      this.dialogFormVisible = true
+    },
     addPort() {
+      this.dialogFormVisible = false
       const item = {
-        id: new Date().getTime(),
-        label: "测试",
-        column: "test",
-        type: "string",
+        _id: new Date().getTime(),
+        _title: this.form.name,
+        _type: this.form.type,
+        _fk_obj_no: this.nodeData?.no,
       }
       const colsList = [...this.colsList, item]
-      this.node.setData({ colsList })
+      this.node.setData({
+        colsList,
+        handler: {
+          type: 'ernode:item:add',
+          item
+        }
+      })
+      setTimeout(() => {
+        this.node.setData({
+          handler: null
+        })
+      }, 200);
       this.node.addPort({
-        id: item.id,
+        id: item._id,
         group: "list",
         data: {
           ...item
@@ -104,6 +175,9 @@ export default defineComponent({
       this.node = this.getNode()
       this.colsList = this.node.getData()?.colsList || []
       this.resizeNode()
+      Object.keys(this.form).forEach(key => {
+        this.form[key] = ''
+      })
     },
     changeCollapses() {
       this.collapses = !this.collapses
@@ -115,14 +189,14 @@ export default defineComponent({
   },
   mounted() {
     const node = (this as any).getNode()
+    this.nodeData = node.getData()
     this.node = node
     this.colsList = (node.getData()?.colsList || []).map(item => {
       item.onEdit = false;
       return item
     })
-    console.log(node)
     this.resizeNode()
-    node.on('change:data', ({cell,previous,current}) => {
+    node.on('change:data', ({ cell, previous, current }) => {
       // 监听选中/取消选中
       console.log(current);
       this.selected = current?.selected
@@ -199,7 +273,11 @@ export default defineComponent({
 
       .text {
         font-size: 10px;
-        min-width: 50px;
+        min-width: 30px;
+
+        &:nth-child(2n) {
+          text-align: right;
+        }
       }
     }
   }
