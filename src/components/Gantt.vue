@@ -49,6 +49,7 @@
     id="gantt_here"
     class="gantt-main"
     style="width: 100%; height: 100%"
+    @wheel.stop.capture.prevent="onWheel"
   ></div>
 </template>
 
@@ -65,6 +66,8 @@ import {
   buildZoomConfig,
   currentDate,
 } from "../common/utils/gantt";
+import { debounce,throttle } from "lodash-es";
+import { ElMessage } from "element-plus";
 const props = defineProps({
   data: {
     type: Array,
@@ -316,7 +319,16 @@ const changeMinWidth = (type) => {
     };
     dateUnit = typeMap[type];
   }
-  console.log(type, dateUnit);
+  // console.log(type, dateUnit);
+  // const dateUnitCnMap = {
+  //   week: "周",
+  //   month: "月",
+  //   quarter: "季",
+  //   year: "年",
+  // };
+  // ElMessage.info(
+  //   `${type?.includes("+") ? "扩大" : "缩小"}${dateUnitCnMap[dateUnit]}范围`
+  // );
   if (minColumnWidth.value < 0 && type?.includes("-")) {
     dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date)
       .subtract(1, dateUnit)
@@ -556,6 +568,33 @@ defineExpose({
   reload,
   deleteLink,
 });
+
+const handleWheel = throttle((deltaY) => {
+  if (deltaY < 0) {
+    if (deltaY < -500) {
+      changeMinWidth("++");
+    } else if (deltaY < -1000) {
+      changeMinWidth("+++");
+    } else {
+      changeMinWidth("+");
+    }
+  } else if (deltaY > 0) {
+    if (deltaY > 500) {
+      changeMinWidth("--");
+    } else if (deltaY > 1000) {
+      changeMinWidth("---");
+    } else {
+      changeMinWidth("-");
+    }
+  }
+}, 500);
+
+const onWheel = (event) => {
+  if (event.ctrlKey) {
+    event.preventDefault();
+    handleWheel(event.deltaY);
+  }
+};
 </script>
 
 <style lang="scss">
