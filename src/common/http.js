@@ -3,7 +3,8 @@ import { ElMessage } from 'element-plus' // 引入elementUI的Message组件
 let bx_auth_ticket = "";
 // let baseURL = window.backendIpAddr || `http://192.168.0.157:8104`;
 // let baseURL = window.backendIpAddr || `https://xxld.100xsys.cn`;
-let baseURL = window.backendIpAddr || `https://srvms.100xsys.cn`;
+// let baseURL = window.backendIpAddr || `https://srvms.100xsys.cn`;
+let baseURL = window.backendIpAddr || `https://api.100xsys.cn`;
 // let baseURL = window.backendIpAddr || `https://wx.100xsys.cn`;
 const devTicket = 'xabxdzkj-9a0d8d62-aabb-43b0-9e5e-135e3d56c0fb'
 if (top?.pathConfig?.gateway) {
