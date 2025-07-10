@@ -58,6 +58,8 @@ import { ref, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { gantt as dhtmlxgantt, gantt } from "dhtmlx-gantt";
 import "dhtmlx-gantt/codebase/skins/dhtmlxgantt_material.css";
 import dayjs from "dayjs";
+import QuarterOfYear from "dayjs/plugin/quarterOfYear";
+dayjs.extend(QuarterOfYear); // 使用季度插件
 import { useCloned } from "@vueuse/core";
 import {
   setGanttConfig,
@@ -66,8 +68,8 @@ import {
   buildZoomConfig,
   currentDate,
 } from "../common/utils/gantt";
-import { debounce,throttle } from "lodash-es";
-import { ElMessage } from "element-plus";
+import { throttle } from "lodash-es";
+// import { ElMessage } from "element-plus";
 const props = defineProps({
   data: {
     type: Array,
@@ -294,13 +296,13 @@ const changeMinWidth = (type) => {
   // 改变列的最小宽度
   const loading = ElLoading.service({
     lock: true,
-    text: "Loading",
-    background: "rgba(0, 0, 0, 0.7)",
+    text: "Loading...",
+    background: "rgba(0, 0, 0, 0.5)",
   });
   if (type?.includes("+")) {
-    minColumnWidth.value = minColumnWidth.value + type.length * 20;
+    minColumnWidth.value = 0 + type.length * 20;
   } else if (type?.includes("-")) {
-    minColumnWidth.value = minColumnWidth.value - type.length * 20;
+    minColumnWidth.value = 0 - type.length * 20;
   } else {
     minColumnWidth.value = 0; // 恢复默认最小宽度
   }
@@ -319,24 +321,15 @@ const changeMinWidth = (type) => {
     };
     dateUnit = typeMap[type];
   }
-  // console.log(type, dateUnit);
-  // const dateUnitCnMap = {
-  //   week: "周",
-  //   month: "月",
-  //   quarter: "季",
-  //   year: "年",
-  // };
-  // ElMessage.info(
-  //   `${type?.includes("+") ? "扩大" : "缩小"}${dateUnitCnMap[dateUnit]}范围`
-  // );
-  if (minColumnWidth.value < 0 && type?.includes("-")) {
+
+  if (minColumnWidth < 0 && type?.includes("-")) {
     dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date)
       .subtract(1, dateUnit)
       .format("YYYY-MM-DD");
     dhtmlxgantt.config.end_date = dayjs(dhtmlxgantt.config.end_date)
       .add(1, dateUnit)
       .format("YYYY-MM-DD");
-  } else if (minColumnWidth.value < 0 && type?.includes("+")) {
+  } else if (minColumnWidth > 0 && type?.includes("+")) {
     dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date)
       .add(1, dateUnit)
       .format("YYYY-MM-DD");
@@ -356,9 +349,18 @@ const changeMinWidth = (type) => {
       .add(3, "day")
       .format("YYYY-MM-DD");
   }
-  // reload()
   dhtmlxgantt.ext.zoom.init(buildZoomConfig(dhtmlxgantt, minColumnWidth.value)); //配置初始化扩展
   changeDateType();
+  // const dateUnitCnMap = {
+  //   week: "周",
+  //   month: "月",
+  //   quarter: "季",
+  //   year: "年",
+  // };
+
+  // ElMessage.info(
+  //   `${type?.includes("+") ? "扩大" : "缩小"}${dateUnitCnMap[dateUnit]}范围`
+  // );
   nextTick(() => {
     loading.close();
   });
