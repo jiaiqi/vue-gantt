@@ -4,25 +4,62 @@
       <!-- <el-select v-model="dateType" placeholder="Select" size="" style="width: 80px" @change="changeDateType">
         <el-option v-for="item in dateOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select> -->
-      <el-button @click="changeToday" style="margin-left: 12px;">今日</el-button>
+      <el-button @click="changeToday" style="margin-left: 12px">今日</el-button>
       <slot name="headerLeft"></slot>
     </div>
-    <div style="text-align: center;">
+    <div style="text-align: center">
       <div v-if="!currentDate">
-        <el-button @click="changeMinWidth('+')" style="margin-left: 12px;">放大</el-button>
-        <el-button @click="changeMinWidth('-')" style="margin-left: 12px;">缩小</el-button>
+        <el-button
+          @click="changeMinWidth('+')"
+          style="margin-left: 12px"
+          title="以年为单位放大"
+          >按年放大</el-button
+        >
+        <el-button
+          @click="changeMinWidth('+')"
+          style="margin-left: 12px"
+          title="以月为单位放大"
+          >按月放大</el-button
+        >
+        <el-button
+          @click="changeMinWidth('+')"
+          style="margin-left: 12px"
+          title="以周为单位放大"
+          >放大</el-button
+        >
+        <el-button
+          @click="changeMinWidth('-')"
+          style="margin-left: 12px"
+          title="以周为单位缩小"
+          >缩小</el-button
+        >
+        <el-button
+          @click="changeMinWidth('--')"
+          style="margin-left: 12px"
+          title="以月为单位缩小"
+          >按月缩小</el-button
+        >
+        <el-button
+          @click="changeMinWidth('---')"
+          style="margin-left: 12px"
+          title="以年为单位缩小"
+          >按年缩小</el-button
+        >
       </div>
       <slot name="headerCenter" v-else>
         {{ currentDate }}
       </slot>
     </div>
     <div>
-
-      <slot name="headerRight">
-      </slot>
+      <slot name="headerRight"> </slot>
     </div>
   </div>
-  <div ref="ganttRef" id="gantt_here" class="gantt-main" style="width: 100%; height: 100%"></div>
+  <div
+    ref="ganttRef"
+    id="gantt_here"
+    class="gantt-main"
+    style="width: 100%; height: 100%"
+  ></div>
 </template>
 
 <script setup>
@@ -31,7 +68,13 @@ import { gantt as dhtmlxgantt, gantt } from "dhtmlx-gantt";
 import "dhtmlx-gantt/codebase/skins/dhtmlxgantt_material.css";
 import dayjs from "dayjs";
 import { useCloned } from "@vueuse/core";
-import { setGanttConfig, setGanttLayout, setGanttTemplates, buildZoomConfig, currentDate } from '../common/utils/gantt'
+import {
+  setGanttConfig,
+  setGanttLayout,
+  setGanttTemplates,
+  buildZoomConfig,
+  currentDate,
+} from "../common/utils/gantt";
 const props = defineProps({
   data: {
     type: Array,
@@ -52,7 +95,7 @@ const props = defineProps({
   },
   dateLevel: {
     type: String,
-    default: "default"
+    default: "default",
   },
   scales: {
     type: Array,
@@ -75,21 +118,21 @@ const props = defineProps({
   },
   durationUnit: {
     type: String,
-    default: 'day'
-  }
+    default: "day",
+  },
 });
 
 const emit = defineEmits([
   "onTaskDblClick",
   "onTaskUpdate",
   "onTaskDelete",
-  'onTaskAdd',
+  "onTaskAdd",
   "date-change",
   "progress-change",
   "onLinkChange",
-  'onLinkAdd',
-  'onLinkDelete',
-  'move-change'
+  "onLinkAdd",
+  "onLinkDelete",
+  "move-change",
 ]);
 //注册甘特图事件监听
 const registerGanttEvent = (gantt, { ganttData, dateType }) => {
@@ -177,8 +220,9 @@ const registerGanttEvent = (gantt, { ganttData, dateType }) => {
       }
       if (currentDate.value) {
         const dateMap = ["天", "一", "二", "三", "四", "五", "六"];
-        currentDate.value = `${currentDate.value}(周${dateMap[new Date(currentDate.value).getDay()]
-          })`;
+        currentDate.value = `${currentDate.value}(周${
+          dateMap[new Date(currentDate.value).getDay()]
+        })`;
       }
     } else if (mode === "progress") {
       currentDate.value = `${Math.round(task.progress * 100)}%`;
@@ -249,39 +293,69 @@ const registerGanttEvent = (gantt, { ganttData, dateType }) => {
   return gantt;
 };
 
-const dataStartDate = ref(null)
-const dataEndDate = ref(null)
+const dataStartDate = ref(null);
+const dataEndDate = ref(null);
 
-const minColumnWidth = ref(0)
+const minColumnWidth = ref(0);
 const changeMinWidth = (type) => {
   // 改变列的最小宽度
-  if (type == '+') {
-    minColumnWidth.value = minColumnWidth.value + 20
-  } else if (type == '++') {
-    minColumnWidth.value = minColumnWidth.value + 40
-  } else if (type == '--') {
-    minColumnWidth.value = minColumnWidth.value - 40
+  const loading = ElLoading.service({
+    lock: true,
+    text: "Loading",
+    background: "rgba(0, 0, 0, 0.7)",
+  });
+  if (type == "+") {
+    minColumnWidth.value = minColumnWidth.value + 20;
+  } else if (type == "++") {
+    minColumnWidth.value = minColumnWidth.value + 40;
+  } else if (type == "--") {
+    minColumnWidth.value = minColumnWidth.value - 40;
   } else {
-    minColumnWidth.value = minColumnWidth.value - 20
+    minColumnWidth.value = minColumnWidth.value - 20;
   }
   // 以周为单位扩大起止日期范围
-  const dateUnit = 'week'
-  if (minColumnWidth.value < 0 && type === '-') {
-    dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date).subtract(1, dateUnit).format('YYYY-MM-DD')
-    dhtmlxgantt.config.end_date = dayjs(dhtmlxgantt.config.end_date).add(1, dateUnit).format('YYYY-MM-DD')
-  } else if (minColumnWidth.value < 0 && type === '+') {
-    dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date).add(1, dateUnit).format('YYYY-MM-DD')
-    dhtmlxgantt.config.end_date = dayjs(dhtmlxgantt.config.end_date).subtract(1, dateUnit).format('YYYY-MM-DD')
+  let dateUnit = "week";
+  if (type === "--" || type === "++") {
+    dateUnit = "month";
+  } else if (["---", "+++"].includes(type)) {
+    dateUnit = "year";
+  }
+  console.log(type, dateUnit);
+  if (minColumnWidth.value < 0 && ["-", "--", "---"].includes(type)) {
+    dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date)
+      .subtract(1, dateUnit)
+      .format("YYYY-MM-DD");
+    dhtmlxgantt.config.end_date = dayjs(dhtmlxgantt.config.end_date)
+      .add(1, dateUnit)
+      .format("YYYY-MM-DD");
+  } else if (minColumnWidth.value < 0 && ["+", "++", "+++"].includes(type)) {
+    dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date)
+      .add(1, dateUnit)
+      .format("YYYY-MM-DD");
+    dhtmlxgantt.config.end_date = dayjs(dhtmlxgantt.config.end_date)
+      .subtract(1, dateUnit)
+      .format("YYYY-MM-DD");
     // }
-  } else if (minColumnWidth.value === 0 && dataStartDate.value && dataEndDate.value) {
+  } else if (
+    minColumnWidth.value === 0 &&
+    dataStartDate.value &&
+    dataEndDate.value
+  ) {
     // 恢复默认的开始日期结束日期
-    dhtmlxgantt.config.start_date = dayjs(dataStartDate.value).subtract(3, 'day').format('YYYY-MM-DD')
-    dhtmlxgantt.config.end_date = dayjs(dataEndDate.value).add(3, 'day').format('YYYY-MM-DD')
+    dhtmlxgantt.config.start_date = dayjs(dataStartDate.value)
+      .subtract(3, "day")
+      .format("YYYY-MM-DD");
+    dhtmlxgantt.config.end_date = dayjs(dataEndDate.value)
+      .add(3, "day")
+      .format("YYYY-MM-DD");
   }
   // reload()
   dhtmlxgantt.ext.zoom.init(buildZoomConfig(dhtmlxgantt, minColumnWidth.value)); //配置初始化扩展
-  changeDateType()
-}
+  changeDateType();
+  nextTick(() => {
+    loading.close();
+  });
+};
 
 const ganttRef = ref(null);
 const dateType = ref(props.dateLevel);
@@ -314,34 +388,36 @@ const dateType = ref(props.dateLevel);
 // ];
 const changeDateType = (type) => {
   // 计算起止日期天数差
-  const dateDiff = dayjs(dhtmlxgantt.config.end_date).diff(dayjs(dhtmlxgantt.config.start_date), 'day');
+  const dateDiff = dayjs(dhtmlxgantt.config.end_date).diff(
+    dayjs(dhtmlxgantt.config.start_date),
+    "day"
+  );
 
-  let dateScaleUnit = 'day'
+  let dateScaleUnit = "day";
   if (dateDiff > 365) {
     // 起止日期天数差大于365天，则按年显示
-    dateScaleUnit = 'year'
+    dateScaleUnit = "year";
   } else if (dateDiff > 30) {
     // 起止日期天数差大于30天，则按月显示
-    dateScaleUnit = 'month'
+    dateScaleUnit = "month";
   } else if (dateDiff > 7) {
     // 起止日期天数差大于7天，则按周显示
-    dateScaleUnit = 'week'
+    dateScaleUnit = "week";
   }
   dateType.value = type;
   if (!dateType.value) {
     dateType.value = props.dateLevel;
   }
-  if (dateType.value === 'default') {
-    dateType.value = dateScaleUnit
+  if (dateType.value === "default") {
+    dateType.value = dateScaleUnit;
   }
   if (minColumnWidth.value > 100) {
-    dateType.value = '月周日时分'
+    dateType.value = "月周日时分";
   } else if (minColumnWidth.value > 50) {
-    dateType.value = '月周日时'
+    dateType.value = "月周日时";
   }
   gantt.ext.zoom.setLevel(dateType.value);
 };
-
 
 // const currentDate = ref(null)
 
@@ -356,59 +432,59 @@ const initGantt = () => {
     // auto_scheduling: true,//根据任务之间的关系自动安排任务
     // multiselect: true, //为任务激活多任务选择
   });
-  setGanttConfig(dhtmlxgantt, props.durationUnit)
-  setGanttLayout(dhtmlxgantt)
-  setGanttTemplates(dhtmlxgantt)
+  setGanttConfig(dhtmlxgantt, props.durationUnit);
+  setGanttLayout(dhtmlxgantt);
+  setGanttTemplates(dhtmlxgantt);
   dhtmlxgantt.ext.zoom.init(buildZoomConfig(dhtmlxgantt, minColumnWidth.value)); //切换到指定的缩放级别
   dhtmlxgantt.i18n.setLocale("cn"); //设置语言
-  dhtmlxgantt.init('gantt_here');
+  dhtmlxgantt.init("gantt_here");
   // 注册事件监听
-  registerGanttEvent(dhtmlxgantt, { dateType, ganttData })
+  registerGanttEvent(dhtmlxgantt, { dateType, ganttData });
   setTimeout(() => {
-    createTodayLine()
+    createTodayLine();
   }, 1000);
 };
 
 // 创建今日线
-const todayMarker = ref('')
+const todayMarker = ref("");
 const createTodayLine = () => {
   var dateToStr = dhtmlxgantt.date.date_to_str("%Y年%M%d日");
   todayMarker.value = gantt.addMarker({
-    id: 'markerLine',
+    id: "markerLine",
     start_date: new Date(),
     css: "today",
     text: "现在",
-    title: dateToStr(new Date())
+    title: dateToStr(new Date()),
   });
   dhtmlxgantt.updateMarker(todayMarker.value);
-}
+};
 //定位到今日线
 const changeToday = () => {
-  createTodayLine()
+  createTodayLine();
   nextTick(() => {
-    let ganTT = document.getElementsByClassName('gantt_marker today')
+    let ganTT = document.getElementsByClassName("gantt_marker today");
     if (!ganTT.length) {
-      createTodayLine()
+      createTodayLine();
       nextTick(() => {
         dhtmlxgantt.scrollTo(ganTT[0].offsetLeft - 300, null);
-      })
+      });
     } else {
       dhtmlxgantt.scrollTo(ganTT[0].offsetLeft - 300, null);
     }
-  })
-}
+  });
+};
 
 const deleteLink = (id) => {
   nextTick(() => {
     dhtmlxgantt.deleteLink(id);
-  })
-}
+  });
+};
 
 const ganttData = ref([]);
 const links = ref([]);
 
 const reload = () => {
-  console.log('reload::::');
+  console.log("reload::::");
   ganttData.value = useCloned(props.data || []).cloned.value;
   links.value = useCloned(props.links || []).cloned.value;
 
@@ -418,24 +494,30 @@ const reload = () => {
       acc.push(cur.start_date, cur.end_date);
     }
     return acc;
-  }, [])
-  dates = dates.reduce((acc, cur) => {
-    if (acc.startDate === '' || acc.startDate > cur) {
-      acc.startDate = cur;
-    }
-    if (acc.endDate === '' || acc.endDate < cur) {
-      acc.endDate = cur;
-    }
-    return acc;
-  }, { startDate: '', endDate: '' })
+  }, []);
+  dates = dates.reduce(
+    (acc, cur) => {
+      if (acc.startDate === "" || acc.startDate > cur) {
+        acc.startDate = cur;
+      }
+      if (acc.endDate === "" || acc.endDate < cur) {
+        acc.endDate = cur;
+      }
+      return acc;
+    },
+    { startDate: "", endDate: "" }
+  );
   dataStartDate.value = dates.startDate;
   dataEndDate.value = dates.endDate;
   // 更新开始日期、结束日期
-  dhtmlxgantt.config.start_date = dayjs(dates.startDate).subtract(3, 'day').format('YYYY-MM-DD HH:mm:ss')
-  dhtmlxgantt.config.end_date = dayjs(dates.endDate).add(3, 'day').format('YYYY-MM-DD HH:mm:ss')
+  dhtmlxgantt.config.start_date = dayjs(dates.startDate)
+    .subtract(3, "day")
+    .format("YYYY-MM-DD HH:mm:ss");
+  dhtmlxgantt.config.end_date = dayjs(dates.endDate)
+    .add(3, "day")
+    .format("YYYY-MM-DD HH:mm:ss");
 
-  initGantt(dhtmlxgantt.config.start_date, dhtmlxgantt.config.end_date)
-
+  initGantt(dhtmlxgantt.config.start_date, dhtmlxgantt.config.end_date);
 
   changeDateType();
   dhtmlxgantt.config.auto_scale = true;
@@ -453,8 +535,8 @@ const updateGanttData = (data) => {
   dhtmlxgantt.parse({
     data: ganttData.value,
     links: links.value,
-  })
-}
+  });
+};
 
 watch(
   () => props.columns,
@@ -476,8 +558,9 @@ onUnmounted(() => {
   // dhtmlxgantt.destructor();
 });
 defineExpose({
-  reload, deleteLink
-})
+  reload,
+  deleteLink,
+});
 </script>
 
 <style lang="scss">
@@ -495,12 +578,12 @@ defineExpose({
 
   .gantt_task_cell.day_end,
   .gantt_task_cell.no_work_hour.day_start {
-    border-right-color: #C7DFFF;
+    border-right-color: #c7dfff;
   }
 
   .gantt_task_cell.week_end.day_end,
   .gantt_task_cell.week_end.day_start {
-    border-right-color: #E2E1E1;
+    border-right-color: #e2e1e1;
   }
 
   .gantt_task_cell.week_end,
@@ -529,7 +612,6 @@ body .gantt_cal_larea {
   }
 
   .gantt_duration {
-
     .gantt_duration_inc,
     .gantt_duration_dec {
       cursor: pointer;
