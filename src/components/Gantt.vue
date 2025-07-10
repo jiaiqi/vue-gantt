@@ -9,42 +9,32 @@
     </div>
     <div style="text-align: center">
       <div v-if="!currentDate">
-        <el-button
-          @click="changeMinWidth('+')"
-          style="margin-left: 12px"
-          title="以年为单位放大"
-          >按年放大</el-button
-        >
-        <el-button
-          @click="changeMinWidth('+')"
-          style="margin-left: 12px"
-          title="以月为单位放大"
-          >按月放大</el-button
-        >
-        <el-button
-          @click="changeMinWidth('+')"
-          style="margin-left: 12px"
-          title="以周为单位放大"
-          >放大</el-button
-        >
-        <el-button
-          @click="changeMinWidth('-')"
-          style="margin-left: 12px"
-          title="以周为单位缩小"
-          >缩小</el-button
-        >
-        <el-button
-          @click="changeMinWidth('--')"
-          style="margin-left: 12px"
-          title="以月为单位缩小"
-          >按月缩小</el-button
-        >
-        <el-button
-          @click="changeMinWidth('---')"
-          style="margin-left: 12px"
-          title="以年为单位缩小"
-          >按年缩小</el-button
-        >
+        <el-button-group>
+          <el-button @click="changeMinWidth('++++')" title="以年为单位放大"
+            >放大(年)</el-button
+          >
+          <el-button @click="changeMinWidth('+++')" title="以季度为单位放大"
+            >放大(季)</el-button
+          >
+          <el-button @click="changeMinWidth('++')" title="以月为单位放大"
+            >放大(月)</el-button
+          >
+          <el-button @click="changeMinWidth('+')" title="以周为单位放大"
+            >放大(周)</el-button
+          >
+          <el-button @click="changeMinWidth('-')" title="以周为单位缩小"
+            >缩小(周)</el-button
+          >
+          <el-button @click="changeMinWidth('--')" title="以月为单位缩小"
+            >缩小(月)</el-button
+          >
+          <el-button @click="changeMinWidth('---')" title="以季度为单位缩小"
+            >缩小(季)</el-button
+          >
+          <el-button @click="changeMinWidth('----')" title="以年为单位缩小"
+            >缩小(年)</el-button
+          >
+        </el-button-group>
       </div>
       <slot name="headerCenter" v-else>
         {{ currentDate }}
@@ -304,38 +294,43 @@ const changeMinWidth = (type) => {
     text: "Loading",
     background: "rgba(0, 0, 0, 0.7)",
   });
-  if (type == "+") {
-    minColumnWidth.value = minColumnWidth.value + 20;
-  } else if (type == "++") {
-    minColumnWidth.value = minColumnWidth.value + 40;
-  } else if (type == "--") {
-    minColumnWidth.value = minColumnWidth.value - 40;
+  if (type?.includes("+")) {
+    minColumnWidth.value = minColumnWidth.value + type.length * 20;
+  } else if (type?.includes("-")) {
+    minColumnWidth.value = minColumnWidth.value - type.length * 20;
   } else {
-    minColumnWidth.value = minColumnWidth.value - 20;
+    minColumnWidth.value = 0; // 恢复默认最小宽度
   }
   // 以周为单位扩大起止日期范围
   let dateUnit = "week";
-  if (type === "--" || type === "++") {
-    dateUnit = "month";
-  } else if (["---", "+++"].includes(type)) {
-    dateUnit = "year";
+  if (type) {
+    const typeMap = {
+      "+": "week",
+      "++": "month",
+      "+++": "quarter",
+      "++++": "year",
+      "-": "week",
+      "--": "month",
+      "---": "quarter",
+      "----": "year",
+    };
+    dateUnit = typeMap[type];
   }
   console.log(type, dateUnit);
-  if (minColumnWidth.value < 0 && ["-", "--", "---"].includes(type)) {
+  if (minColumnWidth.value < 0 && type?.includes("-")) {
     dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date)
       .subtract(1, dateUnit)
       .format("YYYY-MM-DD");
     dhtmlxgantt.config.end_date = dayjs(dhtmlxgantt.config.end_date)
       .add(1, dateUnit)
       .format("YYYY-MM-DD");
-  } else if (minColumnWidth.value < 0 && ["+", "++", "+++"].includes(type)) {
+  } else if (minColumnWidth.value < 0 && type?.includes("+")) {
     dhtmlxgantt.config.start_date = dayjs(dhtmlxgantt.config.start_date)
       .add(1, dateUnit)
       .format("YYYY-MM-DD");
     dhtmlxgantt.config.end_date = dayjs(dhtmlxgantt.config.end_date)
       .subtract(1, dateUnit)
       .format("YYYY-MM-DD");
-    // }
   } else if (
     minColumnWidth.value === 0 &&
     dataStartDate.value &&
