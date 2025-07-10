@@ -3,12 +3,12 @@ import { ref, reactive, onMounted, watch } from "vue";
 import { ElMessageBox, ElMessage } from "element-plus";
 import { useRoute } from "vue-router";
 import { uniqBy, uniqueId, debounce } from 'lodash-es'
-import { $http } from "../common/http";
-import { addTabByUrl } from "../common/utils/index";
 import dayjs from "dayjs";
 import GanttVue from "@/components/Gantt.vue";
 import loginDialog from "@/components/LoginDialog.vue";
-import { useBroadcastChannel } from '../common/utils/broadcastChannel'
+import { $http } from "@/common/http";
+import { addTabByUrl } from "@/common/utils/index";
+import { useBroadcastChannel } from '@/common/utils/broadcastChannel'
 
 defineOptions({
   inheritAttrs: false,
@@ -235,7 +235,7 @@ const initGanttData = (data = [], config = {}) => {
       obj.start_date = dayjs(obj.end_date).subtract(obj.duration, "day").format("YYYY-MM-DD");
     } else if (obj.duration && obj.start_date && !obj.end_date) {
       // 只有开始时间和时长 计算结束时间
-      obj.end_date = dayjs(obj.end_date).add(obj.duration, "day").format("YYYY-MM-DD");
+      obj.end_date = dayjs(obj.start_date).add(obj.duration, "day").format("YYYY-MM-DD");
     } else if (!obj.duration && obj.start_date && obj.end_date) {
       // 只有开始时间和结束时间 计算时长
       obj.duration = dayjs(obj.end_date).diff(obj.start_date, "day");
